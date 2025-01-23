@@ -1,0 +1,6 @@
+###### ERROR ######
+----- Git Error: object file ... is empty ---------------
+# Backup .git/
+cl: find .git/objects/ -type f -empty | xargs rm
+cl: git fetch -p
+cl: git fsck --full

@@ -1,0 +1,8 @@
+*.lnk
+*.ini
+*.zip
+*.rar
+*.exe
+*.dll
+.cache/
+docs/

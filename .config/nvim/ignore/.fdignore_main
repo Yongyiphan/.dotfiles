@@ -1,0 +1,41 @@
+.ClickerDesktop/
+.android/
+.dbus-keyrings/
+.docker/
+.dotnet/
+.idlerc/
+.ipython/
+.keras/
+.lesshst
+.matplotlib/
+.ms-ad/
+.nuget/
+.swt/
+.viminfo
+.vscode/
+.wdm/
+
+3D\ Objects/
+AppData/
+Application\ Data/
+Contacts/
+Cookies/
+
+Favorites/
+Links
+Local\ Settings/
+Music/
+My\ Documents/
+
+NetHood/
+PrintHood/
+Recent/
+Saved\ Games/
+Searches/
+Sendto/
+Start\ Menu/
+Templates/
+Videos/
+ansel/
+curseforge/
+**/osu!/
