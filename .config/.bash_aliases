@@ -6,7 +6,7 @@ alias python=python3
 
 alias vm=nvim
 
-alias au="sudo ~/.config/apt_update.sh"
+alias au="sudo $DOTFILES_DIR/apt_update.sh"
 alias sb="source ~/.bashrc"
 alias enva="source ./env/bin/activate"
 alias envd="deactivate"
@@ -35,12 +35,12 @@ echo "Sourced Bash Aliases"
 
 # Utils Functions
 goto(){
-	source $HOME/.config/bash_sh/utils.sh
+	source $DOTFILES_DIR/bash_sh/utils.sh
 	goto "$@"
 }
 
 enable_file(){
-	source $HOME/.config/bash_sh/utils.sh
+	source $DOTFILES_DIR/bash_sh/utils.sh
 	enable_file "$@"
 }
 	
