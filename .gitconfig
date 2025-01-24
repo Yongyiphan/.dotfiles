@@ -1,5 +1,6 @@
 [user]
 	name = edgar
+	email = 32952693+Yongyiphan@users.noreply.github.com
 [credential "https://github.com"]
 	helper = 
 	helper = !/home/linuxbrew/.linuxbrew/Cellar/gh/2.28.0/bin/gh auth git-credential
