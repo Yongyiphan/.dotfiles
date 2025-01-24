@@ -1,1 +1,0 @@
-/home/eyong/.config/nvim/lua/ega/core/remap.lua lua  

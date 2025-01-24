@@ -1,9 +1,0 @@
-{
-	"configurations":[
-		{
-			"type": "cppdbg",
-			"request":"launch"
-		}
-	]
-
-}

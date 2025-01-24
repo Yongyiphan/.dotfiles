@@ -1,4 +1,0 @@
-[*.lua]
-continuation_indent  = 4
-keep_indents_on_empty_lines = true
-
