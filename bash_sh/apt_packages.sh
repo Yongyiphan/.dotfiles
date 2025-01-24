@@ -4,14 +4,14 @@
 DOTFILES_DIR=~/.dotfiles
 APT_PACKAGE_LIST="$DOTFILES_DIR/apt-packages.txt"
 
-# Save installed apt packages
+# Save installed apt packages with versions
 save_apt_packages() {
-    echo "Saving installed apt packages to $APT_PACKAGE_LIST..."
-    dpkg --get-selections > "$APT_PACKAGE_LIST"
-    echo "Apt package list saved."
+    echo "Saving installed apt packages with specific versions to $APT_PACKAGE_LIST..."
+    dpkg-query -W -f='${binary:Package}=${Version}\n' > "$APT_PACKAGE_LIST"
+    echo "Apt package list with versions saved to $APT_PACKAGE_LIST."
 }
 
-# Restore apt packages
+# Restore apt packages with specific versions
 restore_apt_packages() {
     if [ -f "$APT_PACKAGE_LIST" ]; then
         echo "Restoring apt packages from $APT_PACKAGE_LIST..."
@@ -36,3 +36,4 @@ case "$1" in
         exit 1
         ;;
 esac
+
