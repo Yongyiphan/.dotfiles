@@ -16,6 +16,7 @@ alias lg="lazygit"
 alias fd='fd --color=never'
 alias ls='ls --color=never'
 alias grep='grep --color=never'
+alias dotfiles="cd ~/.dotfiles"
 
 rmlf(){
 	echo "Changing $1"
