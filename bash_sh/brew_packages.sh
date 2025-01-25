@@ -7,7 +7,8 @@ BREWFILE="$DOTFILES_DIR/Brewfile"
 # Save installed brew packages
 save_brew_packages() {
     echo "Saving installed brew packages to $BREWFILE..."
-    EDITOR=true brew bundle dump --file="$BREWFILE" --force
+		unset EDITOR VISUAL
+    brew bundle dump --file="$BREWFILE" --force --describe
     echo "Brew packages saved."
 }
 

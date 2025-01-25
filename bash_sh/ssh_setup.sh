@@ -12,6 +12,7 @@ if [ -z "$SSH_AUTH_SOCK" ]; then
     echo "Reusing existing ssh-agent"
   else
     echo "Starting new ssh-agent"
+		rm -f ~/.ssh/agent.sock
     eval "$(ssh-agent -s -a ~/.ssh/agent.sock)" >/dev/null
     export SSH_AUTH_SOCK=~/.ssh/agent.sock
   fi
