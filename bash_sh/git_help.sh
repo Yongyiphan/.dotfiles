@@ -1,4 +1,7 @@
 #!/bin/bash
+declare -A HOSTNAME_MAP
+HOSTNAME_MAP["personal"]="personal"
+HOSTNAME_MAP["work"]="work-ssh"
 
 
 guideline(){
@@ -85,54 +88,6 @@ guideline(){
 			echo "Invalid option. Please select a valid category."
 			;;
 	esac
-}
-
-# Function to switch Git remote between SSH and HTTPS with custom SSH configurations
-git_remote_old() {
-    # Usage: git_remote [personal|school|https]
-    local account_type="$1"
-
-    # Validate input
-    if [[ -z "$account_type" ]]; then
-        echo "Usage: git_remote [personal|school|https]"
-        return 1
-    fi
-
-    # Get current origin URL
-    local current_url
-    current_url=$(git remote get-url origin 2>/dev/null)
-
-    if [[ -z "$current_url" ]]; then
-        echo "Error: Unable to determine current remote origin URL."
-        return 1
-    fi
-
-    # Extract repository user and project name
-    local repo_user repo_name
-    if [[ "$current_url" =~ github.*[:/](.+)/(.+)\.git ]]; then
-        repo_user="${BASH_REMATCH[1]}"
-        repo_name="${BASH_REMATCH[2]}"
-    else
-        echo "Error: Could not parse current origin URL."
-        return 1
-    fi
-
-    # Construct new URL based on account type
-    local new_url=""
-    if [[ "$account_type" == "personal" ]]; then
-        new_url="git@github-personal-wsl:${repo_user}/${repo_name}.git"
-    elif [[ "$account_type" == "school" ]]; then
-        new_url="git@github-school-sit-wsl:${repo_user}/${repo_name}.git"
-    elif [[ "$account_type" == "https" ]]; then
-        new_url="https://github.com/${repo_user}/${repo_name}.git"
-    else
-        echo "Invalid option. Use 'personal', 'school', or 'https'."
-        return 1
-    fi
-
-    # Update the remote URL
-    git remote set-url origin "$new_url"
-    echo "Git remote origin updated to: $new_url"
 }
 
 git_remote() {
@@ -226,11 +181,14 @@ refresh_gitignore(){
 			return 1
 	fi
 
-	# Update the git index by removing all cached files
-	git rm -r --cached .
+    # Preserve submodules by excluding them from git rm
+    git submodule foreach --recursive git rm --cached .
 
-	# Re-add all files, respecting the updated .gitignore
-	git add .
+    # Remove all cached files (except submodules)
+    git rm -r --cached . 2>/dev/null || true
+
+    # Re-add all files while excluding submodules
+    git add . && git submodule foreach --recursive git add .
 
 	if [ $CMDID = 'commit' ]; then
 		# Commit the changes
