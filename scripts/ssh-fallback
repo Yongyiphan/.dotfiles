@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+#
+# ssh-fallback — try every key in ~/.ssh, non-interactively, until one works.
+
+set -euo pipefail
+
+# 1) discover all your private keys under ~/.ssh
+mapfile -t keys < <(
+  find "$HOME/.ssh" -maxdepth 1 -type f \
+    -name 'id_*' ! -name '*.pub' \
+    -perm /u=r | sort
+)
+
+if [ ${#keys[@]} -eq 0 ]; then
+  echo "No SSH keys in ~/.ssh (id_* excluding .pub)" >&2
+  exit 1
+fi
+
+last_output="" 
+last_status=0
+
+for key in "${keys[@]}"; do
+  echo "→ Trying key: $(basename "$key")" >&2
+
+  # 2) run ssh non-interactively, with a 5s timeout
+  output=$(ssh \
+    -i "$key" \
+    -o IdentitiesOnly=yes \
+    -o BatchMode=yes \
+    -o ConnectTimeout=5 \
+    "$@" 2>&1) || status=$?
+
+  # 3) if ssh itself couldn’t negotiate the key (exit 255), try next
+  if [ "${status:-0}" -eq 255 ]; then
+    last_output="$output"; last_status=$status
+    continue
+  fi
+
+  # 4) if GitHub said “Permission to … denied”, try next
+  if grep -q "^Permission to .\+ denied" <<<"$output"; then
+    last_output="$output"; last_status=$status
+    continue
+  fi
+
+  # 5) otherwise, this key succeeded (or another error) → report & exit
+  echo "$output" >&2
+  exit $status
+done
+
+# all keys failed → replay the last error
+echo "$last_output" >&2
+exit $last_status
