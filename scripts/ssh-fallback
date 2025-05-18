@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-#
-# ssh-fallback — try every key in ~/.ssh, non-interactively, until one works.
-
 set -euo pipefail
 
-# 1) Gather all private keys under ~/.ssh
+# 1) Destination + payload (host + remote command)
+dest="$1"       # e.g. git@github.com
+shift
+cmd=( "$@" )    # e.g. git-receive-pack 'user/repo.git'
+
+# 2) Find every non-.pub file in ~/.ssh named id_*
 mapfile -t keys < <(
   find "$HOME/.ssh" -maxdepth 1 -type f \
     -name 'id_*' ! -name '*.pub' \
@@ -12,45 +14,24 @@ mapfile -t keys < <(
 )
 
 if (( ${#keys[@]} == 0 )); then
-  echo "No SSH keys in ~/.ssh (id_* excluding .pub)" >&2
+  echo "No SSH keys found in ~/.ssh" >&2
   exit 1
 fi
 
-last_output="" 
-last_status=0
-
+# 3) Try each one quickly (no prompts, 5s timeout)
 for key in "${keys[@]}"; do
-  echo "→ Trying key: $(basename "$key")" >&2
+  echo "→ testing key: $(basename "$key")" >&2
 
-  # 2) Capture raw output + exit code
-  raw_output=$(ssh \
-    -i "$key" \
-    -o IdentitiesOnly=yes \
-    -o BatchMode=yes \
-    -o ConnectTimeout=5 \
-    "$@" 2>&1) || status=$?
-
-  # 3) Strip any NULs so Bash won’t complain
-  output=${raw_output//[$'\x00']/}
-
-  # 4) If SSH-level failure (couldn't negotiate key), try next
-  if [[ ${status:-0} -eq 255 ]]; then
-    last_output="$output"; last_status=$status
-    continue
+  if ssh -i "$key" \
+         -o IdentitiesOnly=yes \
+         -o BatchMode=yes \
+         -o ConnectTimeout=5 \
+         "$dest" exit &>/dev/null; then
+    # handshake ok – now run the real push and hand off stdin/stdout
+    exec ssh -i "$key" -o IdentitiesOnly=yes "$dest" "${cmd[@]}"
   fi
-
-  # 5) If GitHub says “Permission to … denied”, try next
-  if grep -q "^Permission to .\+ denied" <<<"$output"; then
-    last_output="$output"; last_status=$status
-    continue
-  fi
-
-  # 6) Otherwise, success (or another error) — print & exit
-  echo "$output" >&2
-  exit $status
 done
 
-# 7) All keys failed → replay last error
-echo "$last_output" >&2
-exit $last_status
+echo "No key could authenticate to $dest" >&2
+exit 1
 
