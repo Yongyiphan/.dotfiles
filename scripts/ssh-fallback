@@ -20,7 +20,7 @@ fi
 
 # 3) Try each one quickly (no prompts, 5s timeout)
 for key in "${keys[@]}"; do
-  echo "→ testing key: $(basename "$key")" >&2
+  echo "Testing key: $(basename "$key")" >&2
 
   if ssh -i "$key" \
          -o IdentitiesOnly=yes \

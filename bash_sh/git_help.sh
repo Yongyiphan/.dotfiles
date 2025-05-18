@@ -221,3 +221,25 @@ remove_lock() {
         echo "Not a Git repository"
     fi
 }
+
+# Wrapper for pushing with host-alias-based key selection
+git-push() {
+  local host_alias="$1"; shift
+  # extract the IdentityFile for that alias from ~/.ssh/config
+  local keyfile
+  keyfile=$(awk -v host="$host_alias" '
+    $1=="Host" && $2==host {found=1; next}
+    found && $1=="Host" { exit }
+    found && $1=="IdentityFile" { print $2; exit }
+  ' ~/.ssh/config)
+
+  if [[ -n "$keyfile" ]]; then
+    echo "→ using SSH key $keyfile for git push $*" >&2
+    GIT_SSH_COMMAND="ssh -i $keyfile -o IdentitiesOnly=yes" \
+      command git push "$@"
+  else
+    echo "⚠️  no SSH config host ‘$host_alias’ found, doing plain push" >&2
+    command git push "$@"
+  fi
+}
+
