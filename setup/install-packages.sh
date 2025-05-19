@@ -1,57 +1,94 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "Installing packages for $OS_TYPE"
+# Optional: pass -q to suppress output
+QUIET=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -q|--quiet) QUIET=1; shift ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
+  esac
+done
+
+log() {
+  if [[ $QUIET -eq 0 ]]; then
+    echo "$@"
+  fi
+}
+
+log "Installing packages for $OS_TYPE"
 
 case "$OS_TYPE" in
 
   nixos)
-    # NixOS
-    nix-env -iA nixpkgs.git nixpkgs.zsh nixpkgs.neovim
-    if command -v home-manager &>/dev/null; then
-      echo "Applying Home Manager configuration"
-      home-manager switch --flake "$DOTFILES#$(whoami)" || true
-    fi
+    (
+      set +e
+      log "  nix-env: installing base packages"
+      nix-env -iA nixpkgs.git   \
+                   nixpkgs.zsh   \
+                   nixpkgs.neovim
+      if [[ $? -ne 0 ]]; then
+        echo "Warning: nix-env install failed" >&2
+      fi
+
+      if command -v home-manager &>/dev/null; then
+        log "  home-manager: applying configuration"
+        home-manager switch --flake "$DOTFILES_DIR#$(whoami)" || \
+          echo "Warning: home-manager switch failed" >&2
+      fi
+      set -e
+    )
     ;;
 
   darwin)
-    # macOS
-    if ! command -v brew &>/dev/null; then
-      echo "Installing Homebrew"
-      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-      eval "$(brew shellenv)"
-    fi
-    if [ -f "$DOTFILES/Brewfile" ]; then
-      brew bundle --file="$DOTFILES/Brewfile"
-    fi
+    (
+      set +e
+      if ! command -v brew &>/dev/null; then
+        log "  Installing Homebrew"
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || \
+          echo "Warning: Homebrew install failed" >&2
+        eval "$(brew shellenv)" || true
+      fi
+
+      if [[ -f "$DOTFILES_DIR/Brewfile" ]]; then
+        log "  brew: bundle install"
+        brew bundle --file="$DOTFILES_DIR/Brewfile" || \
+          echo "Warning: brew bundle failed" >&2
+      fi
+      set -e
+    )
     ;;
 
   linux)
-    # Debian/Ubuntu
-    if [ -f /etc/debian_version ] && [ -f "$DOTFILES/apt-packages.txt" ]; then
-      PKGS=$(grep -vE '^\s*(#|$)' "$DOTFILES/apt-packages.txt" | xargs || true)
-      if [ -n "$PKGS" ]; then
-        echo "Updating apt and installing packages: $PKGS"
-        sudo apt update
-        sudo apt install -y $PKGS
+    (
+      set +e
+      if [[ -f /etc/debian_version && -f "$DOTFILES_DIR/packages.txt" ]]; then
+        PKGS=$(grep -vE '^\s*(#|$)' "$DOTFILES_DIR/packages.txt" | xargs || true)
+        if [[ -n "$PKGS" ]]; then
+          log "  apt: update && install $PKGS"
+          sudo apt update || echo "Warning: apt update failed" >&2
+          sudo apt install -y $PKGS || echo "Warning: apt install failed" >&2
+        fi
       fi
-    fi
 
-    # Homebrew on Linux/WSL (optional)
-    if [ -f "$DOTFILES/Brewfile" ]; then
-      if ! command -v brew &>/dev/null; then
-        echo "Installing Homebrew"
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        eval "$(brew shellenv)"
+      if [[ -f "$DOTFILES_DIR/Brewfile" ]]; then
+        if ! command -v brew &>/dev/null; then
+          log "  Installing Homebrew (Linux)"
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || \
+            echo "Warning: Homebrew install failed" >&2
+          eval "$(brew shellenv)" || true
+        fi
+        log "  brew: bundle install"
+        brew bundle --file="$DOTFILES_DIR/Brewfile" || \
+          echo "Warning: brew bundle failed" >&2
       fi
-      brew bundle --file="$DOTFILES/Brewfile"
-    fi
+      set -e
+    )
     ;;
 
   *)
-    echo "Unknown OS_TYPE=$OS_TYPE, skipping package installation"
+    log "Unknown OS_TYPE=$OS_TYPE; skipping package installation"
     ;;
 esac
 
-echo "Package installation complete"
-
+log "Package installation complete"

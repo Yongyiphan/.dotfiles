@@ -17,6 +17,7 @@ alias fd='fd --color=never'
 alias ls='ls --color=never'
 alias grep='grep --color=never'
 alias dotfiles="cd ~/.dotfiles"
+alias relink=source $DOTFILES/setup/link-dotfiles.sh
 
 rmlf(){
 	echo "Changing $1"
