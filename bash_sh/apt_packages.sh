@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # Variables
-DOTFILES_DIR=~/.dotfiles
-APT_PACKAGE_LIST="$DOTFILES_DIR/apt-packages.txt"
+APT_PACKAGE_LIST="$DOTFILES/apt-packages.txt"
 
 # Save installed apt packages with versions
 save_apt_packages() {

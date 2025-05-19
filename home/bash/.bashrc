@@ -74,16 +74,15 @@ fi
 # FZF
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 
+export DOTFILES=~/.dotfiles
 # Dotfiles path
-export DOTFILES_DIR="${DOTFILES_DIR:-"$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"}"
-
 if [ -f ~/.config/.bash_aliases ]; then
 	source ~/.config/.bash_aliases
 fi
 
 # SSH Setup (tmux-aware)
 if [ -z "$SSH_SETUP_DONE" ]; then
-  source "$DOTFILES_DIR/bash_sh/ssh_setup.sh"
+  source "$DOTFILES/bash_sh/ssh_setup.sh"
   export SSH_SETUP_DONE=1
   
   # Update tmux environment if in tmux

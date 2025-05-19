@@ -21,7 +21,7 @@ goto(){
 	local target_dir="$1"
 	# Base directory containing user folders
 	local users_base_dir="/mnt/c/Users"
-	local ignore_file="$HOME/.config/.bash_find_ignore"
+	local ignore_file="$HOME/config/.bash_find_ignore"
 
 	# Check if the target directory is a key in the associative array
 	if [[ -n "${gotoPaths[$target_dir]}" ]]; then

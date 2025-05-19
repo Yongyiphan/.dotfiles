@@ -6,7 +6,7 @@ alias python=python3
 
 alias vm=nvim
 
-alias au="sudo $DOTFILES_DIR/apt_update.sh"
+alias au="sudo $DOTFILES/apt_update.sh"
 alias sb="source ~/.bashrc"
 alias enva="source ./env/bin/activate"
 alias envd="deactivate"
@@ -29,19 +29,19 @@ alias detach="if [ -n "$TMUX" ]; then tmux detach; else exit; fi"
 declare -A gotoPaths
 gotoPaths["config"]="$HOME/.config"
 gotoPaths["nvim"]="$HOME/.config/nvim"
-
+gotoPaths["dotfiles"]=$DOTFILES
 
 echo "Sourced Bash Aliases"
 
 
 # Utils Functions
 goto(){
-	source $DOTFILES_DIR/bash_sh/utils.sh
+	source $DOTFILES/bash_sh/utils.sh
 	goto "$@"
 }
 
 enable_file(){
-	source $DOTFILES_DIR/bash_sh/utils.sh
+	source $DOTFILES/bash_sh/utils.sh
 	enable_file "$@"
 }
 	
@@ -49,7 +49,7 @@ enable_file(){
 # Git Helper Functions
 alias gremote="git remote -v"
 alias git="/usr/bin/git"
-source $DOTFILES_DIR/bash_sh/git_help.sh
+source $DOTFILES/bash_sh/git_help.sh
 alias rmlock="remove_lock"
 githelp(){
 	guideline

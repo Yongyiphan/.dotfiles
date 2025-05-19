@@ -15,7 +15,7 @@ bash "$DOTFILES/setup/brew-setup.sh"
 bash "$DOTFILES/setup/install-packages.sh"
 
 # 5) symlink all your dotfiles
-bash "$DOTFILES/setup/symlink-dotfiles.sh"
+bash "$DOTFILES/setup/link-dotfiles.sh"
 
 echo
 echo "✅ bootstrap complete! Start a new shell or run 'source ~/.profile'."
