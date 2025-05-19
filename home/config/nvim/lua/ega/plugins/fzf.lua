@@ -9,6 +9,7 @@ local fl = {
 	branch = "main",
 	config = function()
 		require("fzf-lua").setup({})
+		_G.call("ega.custom.fzflua")
 	end,
 }
 

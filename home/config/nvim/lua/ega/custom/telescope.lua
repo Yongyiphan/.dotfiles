@@ -152,6 +152,7 @@ M.open_file_explorer = function(browser_dir)
 		cwd = browser_dir or vim.loop.cwd(),
 		hidden = true,
 		respect_gitignore = false,
+		follow = true,
 	}
 	
 	telescope.extensions.file_browser.file_browser(opts)
@@ -196,6 +197,7 @@ telescope.setup({
 			git_status = false,
 			hidden = true,
 			use_fd = true,
+			follow = true,
 			mappings = {
 				["n"] = {
 					["]"] = require("telescope._extensions.file_browser.actions").toggle_respect_gitignore,

@@ -1,96 +1,62 @@
 #!/usr/bin/env bash
-# Quietly link dotfiles, ignoring individual link errors
-# Usage: link-dotfiles.sh [-q|--quiet]
+set -euo pipefail
 
-set -u -o pipefail
+# 1) Point this at your repo’s home/ directory
+DOTFILES_HOME="${DOTFILES_HOME:-$HOME/.dotfiles/home}"
 
-# parse options
-QUIET=0
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    -q|--quiet)
-      QUIET=1; shift;;
-    *)
-      echo "Unknown option: $1" >&2; exit 1;;
-  esac
-done
-
-# helper to log messages
-log() {
-  if [ "$QUIET" -eq 0 ]; then
-    echo "$@"
-  fi
-}
-
-# turn off immediate exit on error for symlink operations
-set +e
-
-# Cleanup stale symlinks
-log "Cleaning up broken symlinks"
-find "$HOME" \( -path "$HOME/.config/*" -o -path "$HOME/.*" \) -type l | while read -r L; do
-  TARGET=$(readlink "$L")
-  [[ "$TARGET" != /* ]] && TARGET="$(dirname "$L")/$TARGET"
-  if [[ "$TARGET" == "$DOTFILES/home"* && ! -e "$TARGET" ]]; then
-    rm "$L"
-    log "Removed stale symlink: $L"
-  fi
-done
-
-# Prepare backup directory
+# 2) Prepare a backup for any real files we’ll replace
 BACKUP="$HOME/.dotfiles_backup/$(date +%Y%m%dT%H%M%S)"
 mkdir -p "$BACKUP"
 
-# Link home/ → ~/.<file>
-log "Linking user dotfiles"
-find "$DOTFILES/home" -maxdepth 2 -type f ! -path "$DOTFILES/home/config/*" | while read -r SRC; do
-  REL=${SRC#$DOTFILES/home/}
-  DST="$HOME/.$REL"
-  mkdir -p "$(dirname "$DST")"
-  if [ -e "$DST" ] && [ ! -L "$DST" ]; then
-    mv "$DST" "$BACKUP/$REL"; log "Backed up $DST"
+# 3) Remove any stale symlinks under $HOME (only those pointing into DOTFILES_HOME)
+find "$HOME" -maxdepth 2 -type l | while read -r L; do
+  TARGET=$(readlink "$L")
+  if [[ "$TARGET" == "$DOTFILES_HOME"* ]]; then
+    echo "Removing stale symlink $L → $TARGET"
+    rm "$L"
   fi
-  ln -sf "$SRC" "$DST" || log "Warning: failed to link $DST"
 done
 
-# Link home/config → ~/.config
-log "Linking XDG config files"
-find "$DOTFILES/home/config" -type f | while read -r SRC; do
-  REL=${SRC#$DOTFILES/home/config/}
-  DST="$HOME/.config/$REL"
-  mkdir -p "$(dirname "$DST")"
+# 4) Link all files under DOTFILES_HOME except config/ and bin/
+find "$DOTFILES_HOME" -maxdepth 2 -type f \
+  ! -path "$DOTFILES_HOME/config/*" \
+  ! -path "$DOTFILES_HOME/bin/*" | while read -r SRC; do
+
+  # basename gives you “.bashrc” or “.profile” etc.
+  NAME=$(basename "$SRC")
+  DST="$HOME/$NAME"
+
+  # If it’s a real file (not symlink), back it up
   if [ -e "$DST" ] && [ ! -L "$DST" ]; then
-    mv "$DST" "$BACKUP/config/$REL"; log "Backed up $DST"
+    echo "Backing up $DST → $BACKUP/$NAME"
+    mv "$DST" "$BACKUP/$NAME"
   fi
-  ln -sf "$SRC" "$DST" || log "Warning: failed to link $DST"
+
+  # Create the symlink
+  ln -sfn "$SRC" "$DST"
+  echo "Linked $DST → $SRC"
 done
 
-# Link bin/ → ~/.local/bin
-if [ -d "$DOTFILES/bin" ]; then
-  log "Linking executables"
+# 5) Link your entire XDG config tree in one shot
+rm -rf "$HOME/.config"
+ln -sfn "$DOTFILES_HOME/config" "$HOME/.config"
+echo "Linked ~/.config → $DOTFILES_HOME/config"
+
+# 6) Link any executables under bin/ into ~/.local/bin
+if [ -d "$DOTFILES_HOME/bin" ]; then
   mkdir -p "$HOME/.local/bin"
-  find "$DOTFILES/bin" -type f | while read -r SRC; do
-    DST="$HOME/.local/bin/$(basename "$SRC")"
-    ln -sf "$SRC" "$DST" || log "Warning: failed to link $DST"
+  # remove old bin symlinks pointing into DOTFILES_HOME
+  find "$HOME/.local/bin" -maxdepth 1 -type l | while read -r L; do
+    if [[ "$(readlink "$L")" == "$DOTFILES_HOME/bin"* ]]; then
+      rm "$L"
+    fi
   done
-  PROFILE="$HOME/.profile"
-  ENTRY='export PATH="$HOME/.local/bin:$PATH"'
-  grep -qxF "$ENTRY" "$PROFILE" || { echo "$ENTRY" >> "$PROFILE"; log "Updated PATH"; }
+  find "$DOTFILES_HOME/bin" -maxdepth 1 -type f | while read -r SRC; do
+    DST="$HOME/.local/bin/$(basename "$SRC")"
+    ln -sfn "$SRC" "$DST"
+    echo "Linked $DST → $SRC"
+  done
 fi
 
-# Link NixOS configs
-if [ "${OS_TYPE:-}" = "nixos" ]; then
-  log "Linking NixOS configs"
-  sudo mkdir -p /etc/nixos; sudo chown root:root /etc/nixos
-  sudo ln -sf "$DOTFILES/nixos/configuration.nix" /etc/nixos/configuration.nix || log "Warning: failed to link configuration.nix"
-  [ -f "$DOTFILES/nixos/hardware-configuration.nix" ] \
-    && sudo ln -sf "$DOTFILES/nixos/hardware-configuration.nix" /etc/nixos/hardware-configuration.nix || log "Warning: failed to link hardware-configuration.nix"
-  [ -f "$DOTFILES/nixos/flake.nix" ] \
-    && sudo ln -sf "$DOTFILES/nixos/flake.nix" /etc/nixos/flake.nix || log "Warning: failed to link flake.nix"
-  log "NixOS configs linked (run 'sudo nixos-rebuild switch')"
-fi
-
-# restore immediate exit on error
-set -e
-
-log "Dotfiles linking complete; backups in $BACKUP"
+echo "Done! Any overwritten files are backed up under $BACKUP."
 

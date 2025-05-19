@@ -29,7 +29,6 @@ if not lazystatus then
 	return
 end
 lazy.setup("ega.plugins", { ui = { border = "rounded" } })
-require("ega.custom")
 require("ega.core.remap")
 
 vim.cmd("colorscheme nightfox")

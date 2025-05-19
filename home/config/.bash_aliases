@@ -28,8 +28,8 @@ alias attach="tmux attach -t"
 alias detach="if [ -n "$TMUX" ]; then tmux detach; else exit; fi"
 
 declare -A gotoPaths
-gotoPaths["config"]="$HOME/.config"
-gotoPaths["nvim"]="$HOME/.config/nvim"
+gotoPaths["config"]="$DOTFILES/home/.config"
+gotoPaths["nvim"]="$DOTFILES/home/config/nvim"
 gotoPaths["dotfiles"]=$DOTFILES
 
 echo "Sourced Bash Aliases"

@@ -42,5 +42,5 @@ dap.configurations.cpp = {
 
 dap.configurations.c = dap.configurations.cpp
 if vim.fn.filereadable(".vscode/launch.json") then
-	require("dap.ext.vscode").load_launchjs()
+	-- require("dap.ext.vscode").load_launchjs()
 end

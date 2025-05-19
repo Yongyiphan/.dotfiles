@@ -2,30 +2,41 @@ local M = {}
 _G.plugins = {}
 
 function _G.call(plugin)
-	-- if _G.plugins[plugin] ~= nil then
-	-- 	return _G.plugins[plugin]
-	-- else
-	local plugin_status, result = pcall(require, plugin)
-	if _G.Core.LoadUpMsg then
-		local info = debug.getinfo(2, "Sl")
-		local base_path = vim.fn.stdpath("config") .. "/"
-		local relative_path = info.short_src:gsub("^" .. base_path, "")
-		vim.notify(
-			"Loading plugin: " .. plugin ..
-			" from file: " .. relative_path ..
-			" on line: " .. info.currentline)
-	end
-	if not plugin_status then
-		_G.Setup_Status = false
-		print("Fail to call " .. plugin)
-		if _G.Core.LoadUpMsg then
-			print(debug.traceback())
-		end
-		return plugin_status
-	end
-	_G.plugins[plugin] = result
-	return result
-	-- end
+  -- Try to require the module
+  local ok, result = pcall(require, plugin)
+  -- Always capture the caller’s location
+  local info = debug.getinfo(2, "Sl")
+  local base = vim.fn.stdpath("config") .. "/"
+  local src  = info.short_src:gsub("^" .. vim.pesc(base), "")
+  local line = info.currentline
+
+  if not ok then
+    _G.Setup_Status = false
+    -- Print a clear error with location
+    vim.notify(
+      string.format(
+        "Failed to load module '%s' at %s:%d\n%s",
+        plugin, src, line, result
+      ),
+      vim.log.levels.ERROR
+    )
+    return nil
+  end
+
+  if _G.Core.LoadUpMsg then
+    vim.notify(
+      string.format(
+        "Loaded module '%s' from %s:%d",
+        plugin, src, line
+      ),
+      vim.log.levels.INFO
+    )
+  end
+
+  -- Cache and return
+  _G.plugins = _G.plugins or {}
+  _G.plugins[plugin] = result
+  return result
 end
 
 _G.KeyOpts = function(desc, opts)
