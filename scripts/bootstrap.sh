@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  set -euo pipefail
+fi
 
 # 1) locate repo
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

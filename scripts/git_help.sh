@@ -243,3 +243,23 @@ git-push() {
   fi
 }
 
+# wrapper: first arg is your SSH-config host alias, the rest is "git …"
+git-ssh() {
+  local host_alias="$1"; shift
+  local keyfile
+  keyfile=$(awk -v host="$host_alias" '
+    $1=="Host" && $2==host {found=1; next}
+    found && $1=="Host" { exit }
+    found && $1=="IdentityFile" { print $2; exit }
+  ' ~/.ssh/config)
+
+  if [[ -n "$keyfile" ]]; then
+    echo "→ using SSH key $keyfile for: git $*" >&2
+    GIT_SSH_COMMAND="ssh -i $keyfile -o IdentitiesOnly=yes" \
+      command git "$@"
+  else
+    echo "No SSH config host ‘$host_alias’ found; running plain git $*" >&2
+    command git "$@"
+  fi
+}
+

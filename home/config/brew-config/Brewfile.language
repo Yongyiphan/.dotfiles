@@ -1,0 +1,10 @@
+# GNU compiler collection
+brew "gcc"
+# Open source programming language to build simple/reliable/efficient software
+brew "go"
+# Command-line interface for SQLite
+brew "sqlite"
+# Python dependency management tool
+brew "pipenv"
+# Interpreted, interactive, object-oriented programming language
+brew "python@3.11"

@@ -3,10 +3,8 @@ recentrepos:
     - /home/eyong/.dotfiles
     - /mnt/c/Users/edgar/Documents/MainPP/UniP
     - /mnt/c/Users/edgar/Documents/MainPP/EgaGraphics
-    - /mnt/c/Users/edgar/Documents/MainPP/ScrapyMSEA
-    - /mnt/c/Users/edgar/Documents/MainPP/ScrapyMS
 startuppopupversion: 5
-lastversion: 0.43.1
+lastversion: 0.50.0
 customcommandshistory:
     - q
     - echo hello

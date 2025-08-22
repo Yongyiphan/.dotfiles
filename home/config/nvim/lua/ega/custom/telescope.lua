@@ -27,7 +27,7 @@ end
 
 -- Open PDF using external script
 M.open_pdf_with_script = function(entry)
-	local script_path = "$HOME/.config/nvim/bash/open_edge.sh"
+	local script_path = "$HOME/.config/nvim/scripts/open_edge.sh"
 	local selection = Utils.convert_path_to_windows(entry)
 	if selection then
 		local cmd = string.format("%s %s", script_path, selection)
@@ -240,4 +240,3 @@ telescope.load_extension("fzf")
 telescope.load_extension("dap")
 
 return M
-

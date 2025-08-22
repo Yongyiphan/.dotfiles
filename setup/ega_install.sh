@@ -5,7 +5,7 @@
 ##Sudo upgrade
 #sudo apt-get upgrade -y
 
-path="$HOME/.config/bash_sh"
+path="$HOME/.config/scripts"
 for file in "$path"/*.sh; do
     if [ -f "$file" ] && [ -x "$file" ]; then
         echo "Running script: $file"

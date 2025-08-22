@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-set -euo pipefail
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  set -euo pipefail
+fi
+
 
 # 1) Point this at your repo’s home/ directory
 DOTFILES_HOME="${DOTFILES_HOME:-$HOME/.dotfiles/home}"
@@ -59,4 +63,4 @@ if [ -d "$DOTFILES_HOME/bin" ]; then
 fi
 
 echo "Done! Any overwritten files are backed up under $BACKUP."
-
+t

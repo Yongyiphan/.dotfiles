@@ -81,19 +81,26 @@ if [ -f ~/.config/.bash_aliases ]; then
 fi
 
 # SSH Setup (tmux-aware)
-if [ -z "$SSH_SETUP_DONE" ]; then
-  source "$DOTFILES/bash_sh/ssh_setup.sh"
-  export SSH_SETUP_DONE=1
+if [ -z "${SSH_SETUP_DONE:-}" ]; then
+	set +e +o errexit
+	source "$DOTFILES/scripts/ssh_setup.sh"
+	export SSH_SETUP_DONE=1
   
-  # Update tmux environment if in tmux
-  if [ -n "$TMUX" ]; then
-    tmux set-environment SSH_AUTH_SOCK "$SSH_AUTH_SOCK" &>/dev/null
-    tmux set-environment DOTFILES_DIR "$DOTFILES_DIR" &>/dev/null
+  # If we are INSIDE tmux, export SSH_AUTH_SOCK to the tmux server and refresh clients
+  if [ -n "${TMUX:-}" ] && [ -n "${SSH_AUTH_SOCK:-}" ]; then
+    tmux setenv -g SSH_AUTH_SOCK "$SSH_AUTH_SOCK" 2>/dev/null || true
+    # refresh all clients so panes pick up the new env
+    tmux list-clients -F '#{client_tty}' 2>/dev/null | xargs -r -n1 -I{} tmux refresh-client -S -t {} 2>/dev/null
   fi
 fi
+
 
 # Path modifications (after brew)
 export PATH="/home/eyong/repos/ninja/build-cmake:$PATH"
 export EDITOR=nvim
 export VISUAL=nvim
 export TERM="xterm-256color"
+export PATH="$HOME/bin:$PATH"
+
+# keep interactive shells from dying on harmless errors
+case $- in *i*) set +o errexit 2>/dev/null; trap - ERR 2>/dev/null;; esac
