@@ -1,13 +1,30 @@
 # ~/.bashrc: executed by bash(1) for non-login shells.
-
 # If not running interactively, don't do anything
 case $- in
     *i*) ;;
       *) return;;
 esac
 
+# Load common environment
+[ -f "$HOME/.bash_env" ] && source "$HOME/.bash_env"
+
+# --- BASHRC DEBUG (enable with: touch ~/.debug_bashrc) ---
+if [[ -f "$HOME/.debug_bashrc" ]]; then
+  _dbg_log="$HOME/.bashrc.debug.$(date +%Y%m%d-%H%M%S).log"
+  exec 9>"$_dbg_log"
+  export BASH_XTRACEFD=9
+  PS4='+ ${BASH_SOURCE##*/}:${LINENO}:${FUNCNAME[0]:-main}: '
+  set -o errtrace -o functrace -o pipefail
+  trap 'rc=$?; echo "ERR $rc at ${BASH_SOURCE}:${LINENO}: ${BASH_COMMAND}" >&9' ERR
+  set -x
+  _dbg_cleanup='set +x; trap - ERR; exec 9>&-; unset _dbg_log _dbg_cleanup'
+  PROMPT_COMMAND="${_dbg_cleanup}${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+  echo "bashrc debug log: $_dbg_log" >&2
+fi
+# --- /BASHRC DEBUG ---
+
 # Only run once per shell session
-if [ -z "$BASHRC_DONE" ] && [ -n "$BASH" ]; then
+if [ -z "${BASHRC_DONE:-}" ] && [ -n "${BASH:-}" ]; then
   # History settings
   HISTCONTROL=ignoreboth
   shopt -s histappend
@@ -28,7 +45,7 @@ if [ -z "$BASHRC_DONE" ] && [ -n "$BASH" ]; then
       xterm-color|*-256color) color_prompt=yes;;
   esac
 
-  if [ -n "$force_color_prompt" ]; then
+	if [ -n "${force_color_prompt:-}" ]; then
       [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null && color_prompt=yes || color_prompt=
   fi
 
@@ -38,12 +55,6 @@ if [ -z "$BASHRC_DONE" ] && [ -n "$BASH" ]; then
       PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
   fi
   unset color_prompt force_color_prompt
-
-  # Brew initialization (only once)
-  if [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
-      eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-      export HOMEBREW_NO_ENV_HINTS=1
-  fi
 
   # Mark initialization as done
   export BASHRC_DONE=1
@@ -74,33 +85,28 @@ fi
 # FZF
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 
-export DOTFILES=~/.dotfiles
+
 # Dotfiles path
 if [ -f ~/.config/.bash_aliases ]; then
 	source ~/.config/.bash_aliases
 fi
 
-# SSH Setup (tmux-aware)
 if [ -z "${SSH_SETUP_DONE:-}" ]; then
-	set +e +o errexit
-	source "$DOTFILES/scripts/ssh_setup.sh"
-	export SSH_SETUP_DONE=1
-  
-  # If we are INSIDE tmux, export SSH_AUTH_SOCK to the tmux server and refresh clients
-  if [ -n "${TMUX:-}" ] && [ -n "${SSH_AUTH_SOCK:-}" ]; then
-    tmux setenv -g SSH_AUTH_SOCK "$SSH_AUTH_SOCK" 2>/dev/null || true
-    # refresh all clients so panes pick up the new env
-    tmux list-clients -F '#{client_tty}' 2>/dev/null | xargs -r -n1 -I{} tmux refresh-client -S -t {} 2>/dev/null
-  fi
+  set +e +o errexit
+  source "$DOTFILES/scripts/ssh_setup.sh"
+  export SSH_SETUP_DONE=1
 fi
 
-
-# Path modifications (after brew)
-export PATH="/home/eyong/repos/ninja/build-cmake:$PATH"
-export EDITOR=nvim
-export VISUAL=nvim
-export TERM="xterm-256color"
-export PATH="$HOME/bin:$PATH"
+# Always (re)sync SSH agent into tmux for any new interactive shell inside tmux
+if [ -n "${TMUX:-}" ] && [ -n "${SSH_AUTH_SOCK:-}" ]; then
+  # Only update if different to avoid churn
+  cur="$(tmux show-environment -g SSH_AUTH_SOCK 2>/dev/null || true)"
+  want="SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+  if [ "$cur" != "$want" ]; then
+    tmux setenv -g SSH_AUTH_SOCK "$SSH_AUTH_SOCK" 2>/dev/null || true
+    tmux refresh-client -S 2>/dev/null || true
+  fi
+fi
 
 # keep interactive shells from dying on harmless errors
 case $- in *i*) set +o errexit 2>/dev/null; trap - ERR 2>/dev/null;; esac

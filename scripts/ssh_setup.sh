@@ -18,18 +18,25 @@ chmod 700 "$SSH_DIR" 2>/dev/null || true
 
 # ---- agent bootstrap (stable socket) ----
 start_agent() {
-  if [ -n "${SSH_AUTH_SOCK:-}" ] && ssh-add -l >/dev/null 2>&1; then
-    return
-  fi
-  local sock="$SSH_DIR/agent.sock"
-  rm -f "$sock"
-  eval "$(ssh-agent -a "$sock")" >/dev/null
-  export SSH_AUTH_SOCK="$sock"
+ # If an agent is already usable (e.g., forwarded), reuse it
+ if [ -n "${SSH_AUTH_SOCK:-}" ] && ssh-add -l >/dev/null 2>&1; then
+   export EGA_LOCAL_AGENT=0
+   return
+ fi
+ # Start our own agent on a stable socket
+ local sock="$SSH_DIR/agent.sock"
+ rm -f "$sock"
+ eval "$(ssh-agent -a "$sock")" >/dev/null
+ export SSH_AUTH_SOCK="$sock"
+ export EGA_LOCAL_AGENT=1
 }
 start_agent
 
-# always start clean so unwanted keys don't linger
-ssh-add -D >/dev/null 2>&1 || true
+# Only manage keys if we control the local agent we just started
+if [ "${EGA_LOCAL_AGENT:-0}" = 1 ] && [ "${SSH_AUTH_SOCK:-}" = "$SSH_DIR/agent.sock" ]; then
+  # start clean so unwanted keys don't linger
+  ssh-add -D >/dev/null 2>&1 || true
+fi
 
 # ---- helpers ----
 
@@ -107,11 +114,11 @@ fallback_load_all() {
            \) ! -iname '*.pub' ! -iname '*.pem' 2>/dev/null)
 }
 
-if load_from_config; then
-  :
-else
-  echo "No IdentityFile entries found in ~/.ssh/config — loading detected keys (excluding .pem)."
-  fallback_load_all
+if [ "${EGA_LOCAL_AGENT:-0}" = 1 ] && [ "${SSH_AUTH_SOCK:-}" = "$SSH_DIR/agent.sock" ]; then
+  if load_from_config; then :; else
+    echo "No IdentityFile entries found in ~/.ssh/config — loading detected keys (excluding .pem)."
+    fallback_load_all
+  fi
 fi
 
 # Show what's loaded (optional)

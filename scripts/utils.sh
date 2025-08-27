@@ -1,5 +1,7 @@
 #!/bin/bash
 
+if [[ -n "${DOT_UTILS_INCLUDED:-}" ]]; then return 0; fi
+export DOT_UTILS_INCLUDED=1
 enable_file(){
 	# Check if exactly one argument is provided
 	if [ $# -ne 1 ]; then
@@ -72,4 +74,45 @@ goto(){
 	# Change to the selected directory
 	cd "$dir" || return
 }
+
+
+
+# ---------- tiny utils ----------
+# define only if not already defined (so callers can override)
+command -v exists >/dev/null 2>&1 || exists(){ command -v "$1" >/dev/null 2>&1; }
+command -v ts     >/dev/null 2>&1 || ts(){ date +%F_%H%M%S; }
+command -v human  >/dev/null 2>&1 || human(){ awk 'function H(x,u,i){split("B KB MB GB TB",u);for(i=1;x>=1024&&i<5;i++)x/=1024;printf("%.2f %s",x,u[i])}{H($1)}'; }
+command -v info   >/dev/null 2>&1 || info(){ printf '[%s] %s\n' "${SCRIPT_NAME:-utils}" "$*"; }
+
+# paths
+command -v repo_root >/dev/null 2>&1 || repo_root(){
+  git -C "${1:-$PWD}" rev-parse --show-toplevel 2>/dev/null || echo "${1:-$PWD}"
+}
+
+# env detection
+command -v is_wsl  >/dev/null 2>&1 || is_wsl(){ grep -qi microsoft /proc/version 2>/dev/null; }
+command -v os_id   >/dev/null 2>&1 || os_id(){ [ -r /etc/os-release ] && . /etc/os-release; echo "${ID:-linux}"; }
+command -v arch_id >/dev/null 2>&1 || arch_id(){ uname -m; }
+
+# PATH helper (idempotent)
+command -v ensure_localbin_on_path >/dev/null 2>&1 || ensure_localbin_on_path(){
+  mkdir -p "$HOME/.local/bin"
+  case ":$PATH:" in *":$HOME/.local/bin:"*) :;; *) export PATH="$HOME/.local/bin:$PATH";; esac
+  # persist for new shells (bash/zsh if present)
+  for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    [[ -f "$rc" ]] || continue
+    grep -qs 'HOME/.local/bin' "$rc" || printf '\nif [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then export PATH="$HOME/.local/bin:$PATH"; fi\n' >> "$rc"
+  done
+}
+
+# symlink helper (idempotent)
+command -v link_tool >/dev/null 2>&1 || link_tool(){
+  # link_tool <src> <dst>
+  local src="$1" dst="$2"
+  [[ -e "$src" ]] || { info "missing $src"; return 1; }
+  chmod +x "$src" 2>/dev/null || true
+  ln -snf "$src" "$dst"
+  info "linked $(basename "$src") -> $dst"
+}
+
 
