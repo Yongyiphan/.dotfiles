@@ -108,5 +108,8 @@ if [ -n "${TMUX:-}" ] && [ -n "${SSH_AUTH_SOCK:-}" ]; then
   fi
 fi
 
+force_color_prompt=yes
+PS1='\[\e[1;32m\]\u@\h\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ '
+
 # keep interactive shells from dying on harmless errors
 case $- in *i*) set +o errexit 2>/dev/null; trap - ERR 2>/dev/null;; esac

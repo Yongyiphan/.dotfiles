@@ -18,7 +18,6 @@ alias ls='ls --color=never'
 alias grep='grep --color=never'
 alias dotfiles="cd ~/.dotfiles"
 alias relink='source "$DOTFILES/setup/link-dotfiles.sh"'
-
 rmlf(){
 	echo "Changing $1"
 	sed -i -e "s/\r//g" "$1"
@@ -34,17 +33,7 @@ gotoPaths["dotfiles"]=$DOTFILES
 
 echo "Sourced Bash Aliases"
 
-
-# Utils Functions
-goto(){
-	source $DOTFILES/scripts/utils.sh
-	goto "$@"
-}
-
-enable_file(){
-	source $DOTFILES/scripts/utils.sh
-	enable_file "$@"
-}
+[ -f "$DOTFILES/scripts/utils.sh" ] && source "$DOTFILES/scripts/utils.sh"
 
 if [ -f "$DOTFILES/pkg/get_packages.sh" ]; then
   # shellcheck source=/dev/null

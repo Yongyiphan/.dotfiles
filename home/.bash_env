@@ -13,8 +13,7 @@ export PATH="/home/eyong/repos/ninja/build-cmake:$PATH"
 # Editor and terminal defaults
 export EDITOR=nvim
 export VISUAL=nvim
-export TERM="xterm-256color"
-
+export TMUX_CONF="$HOME/.config/tmux/tmux.conf"
 # Homebrew environment (safe for non-interactive shells too)
 if [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
   eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"

@@ -62,5 +62,6 @@ if [ -d "$DOTFILES_HOME/bin" ]; then
   done
 fi
 
+# 6) Link TMUX
+ln -s ~/.config/tmux/.tmux.conf ~/.tmux.conf
 echo "Done! Any overwritten files are backed up under $BACKUP."
-t

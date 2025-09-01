@@ -9,11 +9,5 @@ local M = {
 			require("ega.custom.treesitter").setup()
 		end,
 	},
-	{
-		"numirias/semshi",
-		build = function()
-			pcall(vim.cmd, "UpdateRemotePlugins")
-		end,
-	},
 }
 return M

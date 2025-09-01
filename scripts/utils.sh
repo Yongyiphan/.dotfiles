@@ -1,7 +1,5 @@
 #!/bin/bash
 
-if [[ -n "${DOT_UTILS_INCLUDED:-}" ]]; then return 0; fi
-export DOT_UTILS_INCLUDED=1
 enable_file(){
 	# Check if exactly one argument is provided
 	if [ $# -ne 1 ]; then
