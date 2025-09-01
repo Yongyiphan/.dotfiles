@@ -64,4 +64,19 @@ fi
 
 # 6) Link TMUX
 ln -s ~/.config/tmux/.tmux.conf ~/.tmux.conf
+#
+# 7) Manually expose scripts from other folders into ~/.local/bin
+mkdir -p "$HOME/.local/bin"
+
+for SRC in \
+  "$DOTFILES/scripts/ssh_setup.sh" \
+  "$DOTFILES/scripts/get_packages.sh" \
+; do
+  if [ -f "$SRC" ]; then
+    NAME=$(basename "$SRC" .sh)   # drop .sh if you prefer clean names
+    DST="$HOME/.local/bin/$NAME"
+    ln -sfn "$SRC" "$DST"
+    echo "Linked $DST → $SRC"
+  fi
+done
 echo "Done! Any overwritten files are backed up under $BACKUP."

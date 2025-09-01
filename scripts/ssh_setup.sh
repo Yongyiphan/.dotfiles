@@ -21,6 +21,7 @@ start_agent() {
  # If an agent is already usable (e.g., forwarded), reuse it
  if [ -n "${SSH_AUTH_SOCK:-}" ] && ssh-add -l >/dev/null 2>&1; then
    export EGA_LOCAL_AGENT=0
+	 echo "Using FORWARDED SSH agent: $SSH_AUTH_SOCK"
    return
  fi
  # Start our own agent on a stable socket

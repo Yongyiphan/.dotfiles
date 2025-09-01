@@ -91,6 +91,11 @@ if [ -f ~/.config/.bash_aliases ]; then
 	source ~/.config/.bash_aliases
 fi
 
+# Stable SSH agent fallback (won't override a forwarded agent)
+if ! ssh-add -l >/dev/null 2>&1; then
+  export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
+fi
+
 if [ -z "${SSH_SETUP_DONE:-}" ]; then
   set +e +o errexit
   source "$DOTFILES/scripts/ssh_setup.sh"
