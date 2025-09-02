@@ -1,20 +1,23 @@
 #!/bin/bash
 
 enable_file(){
-	# Check if exactly one argument is provided
-	if [ $# -ne 1 ]; then
-			echo "Error: Please provide exactly one file path."
-			return 1
-	fi
-
-	# Check if the file exists
-	if [ -f "$1" ]; then
-			chmod +x "$1"
-			echo "File '$1' is now executable."
-	else
-			echo "Error: File '$1' does not exist."
-			return 1
-	fi
+  [ $# -eq 1 ] || { echo "Error: pass a file or directory"; return 1; }
+  local p="$1"
+  if [ -d "$p" ]; then
+    find "$p" -maxdepth 1 -type f -name '*.sh' -print0 \
+    | while IFS= read -r -d '' f; do
+        chmod +x -- "$f"
+        echo "File '$f' is now executable."
+      done
+    return 0
+  fi
+  if [ -f "$p" ]; then
+    chmod +x -- "$p"
+    echo "File '$p' is now executable."
+  else
+    echo "Error: '$p' does not exist."
+    return 1
+  fi
 }
 
 goto(){
