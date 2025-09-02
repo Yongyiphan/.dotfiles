@@ -1,26 +1,36 @@
 # ~/.bash_env — environment variables only
 
-# Always point BASH_ENV to this file so subshells and scripts get it too
+# Make non-interactive bash read this too
 export BASH_ENV="$HOME/.bash_env"
 
-# Path to your dotfiles repo
+# Repo root
 export DOTFILES="$HOME/.dotfiles"
 
-# Path modifications
-export PATH="$HOME/bin:$PATH"
-export PATH="/home/eyong/repos/ninja/build-cmake:$PATH"
+# Path helpers (prevent duplicates)
+_path_prepend() { case ":$PATH:" in *":$1:"*) ;; *) PATH="$1:$PATH";; esac; }
 
-# Editor and terminal defaults
+# Paths (only if present)
+[ -d "$HOME/bin" ] && _path_prepend "$HOME/bin"
+[ -d "$HOME/repos/ninja/build-cmake" ] && _path_prepend "$HOME/repos/ninja/build-cmake"
+
+# Editor defaults
 export EDITOR=nvim
 export VISUAL=nvim
 export TMUX_CONF="$HOME/.config/tmux/tmux.conf"
-# Homebrew environment (safe for non-interactive shells too)
+
+# Homebrew (only if installed)
 if [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
   eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
   export HOMEBREW_NO_ENV_HINTS=1
 fi
-#
-# Prefer a forwarded agent if it works; otherwise fall back to a stable local socket
-if ! SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-}" ssh-add -l >/dev/null 2>&1; then
-  export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-$HOME/.ssh/agent.sock}"
+
+# Prefer a forwarded agent; otherwise fall back to a stable local socket
+if command -v ssh-add >/dev/null 2>&1; then
+  if ! SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-}" ssh-add -l >/dev/null 2>&1; then
+    export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-$HOME/.ssh/agent.sock}"
+  fi
 fi
+
+# Ensure ~/.local/bin is on PATH exactly once
+_path_prepend "$HOME/.local/bin"
+export PATH
