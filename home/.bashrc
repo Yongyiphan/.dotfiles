@@ -119,5 +119,7 @@ PS1='\[\e[1;32m\]\u@\h\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ '
 # keep interactive shells from dying on harmless errors
 case $- in *i*) set +o errexit 2>/dev/null; trap - ERR 2>/dev/null;; esac
 
-# Homebrew
+# put this in ~/.bashrc or a dotfile
+osc52() { local d; d=$(base64 -w0); printf '\e]52;c;%s\a' "$d" > /dev/tty; }
+
 

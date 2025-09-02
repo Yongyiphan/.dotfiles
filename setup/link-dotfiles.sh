@@ -105,7 +105,7 @@ fi
 
 # 6) TMUX: back up a real ~/.tmux.conf, then link (ignore error if unchanged)
 backup_if_real "$HOME/.tmux.conf"
-ln -sfn "$HOME/.config/tmux/.tmux.conf" "$HOME/.tmux.conf" || :
+ln -sfn "$HOME/.config/tmux/tmux.conf" "$HOME/.tmux.conf" || :
 
 # 7) Manually expose selected scripts/setup tools into ~/.local/bin
 mkdir -p "$HOME/.local/bin"

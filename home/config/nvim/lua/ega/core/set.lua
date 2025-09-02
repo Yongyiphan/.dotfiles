@@ -29,8 +29,21 @@ vim.lsp.set_log_level("error")
 vim.o.signcolumn = "yes"
 vim.opt.termguicolors = true
 require("vim.lsp.log").set_format_func(vim.inspect)
+
+
 for scope, table in pairs(options) do
 	for setting, value in pairs(table) do
 		vim[scope][setting] = value
 	end
+end
+
+local has_provider =
+		(vim.fn.executable("xclip") == 1)
+		or (vim.fn.executable("wl-copy") == 1)
+		or (vim.loop.os_uname().sysname == "Darwin")
+		
+if has_provider and (vim.env.DISPLAY or vim.env.WAYLAND_DISPLAY) then
+	vim.opt.clipboard = "unnamedplus"
+else
+	vim.opt.clipboard = ""
 end
