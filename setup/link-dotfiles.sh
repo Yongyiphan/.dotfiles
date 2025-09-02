@@ -114,6 +114,7 @@ for SRC in \
   "$DOTFILES/scripts/get_packages.sh" \
   "$DOTFILES/setup/link-dotfiles.sh" \
   "$DOTFILES/scripts/dotfiles-menu.sh" \
+  "$DOTFILES/scripts/utils.sh" \
 ; do
   if [ -f "$SRC" ]; then
     NAME="$(basename "$SRC" .sh)"   # drop .sh for clean names
