@@ -20,62 +20,118 @@ enable_file(){
   fi
 }
 
-goto(){
-	local target_dir="$1"
-	# Base directory containing user folders
-	local users_base_dir="/mnt/c/Users"
-	local ignore_file="$HOME/config/.bash_find_ignore"
+goto() {
+  local q="${1:-}"; [[ -z "$q" ]] && { echo "usage: goto <name-fragment>"; return 2; }
 
-	# Check if the target directory is a key in the associative array
-	if [[ -n "${gotoPaths[$target_dir]}" ]]; then
-		cd "${gotoPaths[$target_dir]}" || return
-		return
-	fi
+  # shortcut map
+  if declare -p gotoPaths &>/dev/null && [[ -n "${gotoPaths[$q]:-}" ]]; then
+    cd -- "${gotoPaths[$q]}" || return; return 0
+  fi
 
-	if ! command -v fd &> /dev/null; then
-			echo "fd is not installed. Please install fd first."
-			return 1
-	fi
+  # backends
+  local SEARCH_BACKEND="" FD_BIN=""
+  if command -v fd >/dev/null 2>&1; then FD_BIN="fd"; SEARCH_BACKEND="fd"
+  elif command -v fdfind >/dev/null 2>&1; then FD_BIN="fdfind"; SEARCH_BACKEND="fd"
+  elif command -v find >/dev/null 2>&1; then SEARCH_BACKEND="find"
+  else echo "goto: need a search tool (install fd or ensure 'find' exists)."; return 1
+  fi
+  local HAS_FZF=0; command -v fzf >/dev/null 2>&1 && HAS_FZF=1
 
+  # roots (ENV first; else smart defaults)
+  local roots_conf="${GOTO_ROOTS:-}"
+  if [[ -z "$roots_conf" ]]; then
+    if [[ "${IS_WSL:-0}" == "1" ]] && [[ -d /mnt/c/Users ]]; then
+      roots_conf="/mnt/c/Users/*/Documents:$HOME"
+    elif [[ "${OS_TYPE:-$(uname -s | tr '[:upper:]' '[:lower:]')}" =~ linux ]]; then
+      # keep it simple: $HOME only (you can add others in your ENV per device)
+      roots_conf="$HOME"
+    elif [[ "${OS_TYPE:-}" == "darwin" ]] || [[ "$(uname -s)" == "Darwin" ]]; then
+      roots_conf="$HOME"
+    else
+      roots_conf="$HOME"
+    fi
+  fi
 
-	# Initialize an array to store the paths of all 'Documents' directories
-	local documents_dirs=()
+  # expand colon-separated globs -> concrete dirs
+  local -a all_matches=() roots=()
+  IFS=':' read -r -a _pats <<< "$roots_conf"
+  for pat in "${_pats[@]}"; do
+    pat="${pat//\~/$HOME}"; pat="$(eval "printf '%s' \"$pat\"")"
+    while IFS= read -r m; do all_matches+=("$m"); done < <(compgen -G "$pat" || true)
+    [[ ${#all_matches[@]} -eq 0 && -d "$pat" ]] && all_matches+=("$pat")
+  done
 
-	# Iterate over each directory in /mnt/c/Users to find 'Documents' folders
-	for user_dir in "$users_base_dir"/*/; do
-			if [ -d "${user_dir}Documents" ]; then
-					documents_dirs+=("${user_dir}Documents")
-			fi
-	done
+  # normalize -> absolute (readlink -f) and dedup
+  declare -A seen=()
+  for d in "${all_matches[@]}"; do
+    [[ -d "$d" && -r "$d" ]] || continue
+    local canon; canon="$(readlink -f -- "$d" 2>/dev/null || realpath -m -- "$d" 2>/dev/null || printf '%s' "$d")"
+    canon="${canon%/}"
+    [[ -z "${seen[$canon]:-}" ]] && { roots+=("$canon"); seen[$canon]=1; }
+  done
+  # prune sub-roots (remove any root that is a subdir of another root)
+  if ((${#roots[@]} > 1)); then
+    IFS=$'\n' roots=($(printf '%s\n' "${roots[@]}" | awk '{print length, $0}' | sort -n | cut -d" " -f2-))
+    declare -a pruned=()
+    for r in "${roots[@]}"; do
+      local is_sub=0
+      for p in "${pruned[@]}"; do
+        [[ "$r" == "$p" ]] && { is_sub=1; break; }
+        [[ "$r" == "$p/"* ]] && { is_sub=1; break; }
+      done
+      (( ! is_sub )) && pruned+=("$r")
+    done
+    roots=("${pruned[@]}")
+  fi
+  ((${#roots[@]})) || { echo "goto: no valid roots from '$roots_conf'"; return 1; }
 
-	# Check if no 'Documents' directories were found
-	if [ ${#documents_dirs[@]} -eq 0 ]; then
-			echo "No 'Documents' directories found under /mnt/c/Users."
-			return 1
-	fi
+  local ignore_file="${GOTO_IGNORE_FILE:-$HOME/.config/.bash_find_ignore}"
+  [[ -f "$ignore_file" ]] || ignore_file=/dev/null
 
-	# Initialize an array to hold the search results
-	local search_results=()
+  # search
+  declare -A seen_hit=()
+  local -a hits=()
+  if [[ "$SEARCH_BACKEND" == "fd" ]]; then
+    for r in "${roots[@]}"; do
+      while IFS= read -r line; do
+        local canon; canon="$(readlink -f -- "$line" 2>/dev/null || realpath -m -- "$line" 2>/dev/null || printf '%s' "$line")"
+        canon="${canon%/}"
+        [[ -z "${seen_hit[$canon]:-}" ]] && { hits+=("$canon"); seen_hit[$canon]=1; }
+      done < <("$FD_BIN" -a --type d --ignore-file "$ignore_file" --fixed-strings "$q" "$r" 2>/dev/null || true)
+    done
+  else
+    for r in "${roots[@]}"; do
+      while IFS= read -r line; do
+        local canon; canon="$(readlink -f -- "$line" 2>/dev/null || realpath -m -- "$line" 2>/dev/null || printf '%s' "$line")"
+        canon="${canon%/}"
+        [[ -z "${seen_hit[$canon]:-}" ]] && { hits+=("$canon"); seen_hit[$canon]=1; }
+      done < <(find "$r" -type d -iname "*$q*" 2>/dev/null || true)
+    done
+  fi
+  ((${#hits[@]})) || { echo "No match for '$q' under configured roots."; return 1; }
 
-	# Search for the target directory within each 'Documents' directory
-	for doc_dir in "${documents_dirs[@]}"; do
-			while IFS= read -r line; do
-					search_results+=("$line")
-			done < <(fd --type d --ignore-file "$ignore_file" --fixed-strings "$target_dir" "$doc_dir" 2>/dev/null)
-	done
+  # pick
+  local sel=""
+  if (( HAS_FZF )); then
+    sel="$(printf '%s\n' "${hits[@]}" | fzf --query="$q" --select-1 --exit-0)" || return 1
+  else
+    if ((${#hits[@]} == 1)); then
+      sel="${hits[0]}"
+    elif [[ -t 0 && -t 1 ]]; then
+      local i=1; for h in "${hits[@]}"; do printf '%2d) %s\n' "$i" "$h"; ((i++)); done
+      local pick; read -rp "Choose [1-${#hits[@]}] (0=cancel): " pick
+      [[ "$pick" =~ ^[0-9]+$ ]] || { echo "Invalid."; return 1; }
+      (( pick>=1 && pick<=${#hits[@]} )) || { echo "Cancelled."; return 1; }
+      sel="${hits[pick-1]}"
+    else
+      [[ "${GOTO_ALLOW_FIRST_NONINTERACTIVE:-1}" == "1" ]] || { printf '%s\n' "${hits[@]}"; return 1; }
+      sel="${hits[0]}"
+    fi
+  fi
 
-	# Use fzf to select from the search results
-	local dir=$(printf "%s\n" "${search_results[@]}" | fzf --query="$target_dir" --select-1 --exit-0)
-
-	if [ -z "$dir" ]; then
-			echo "No directory found or selected."
-			return 1
-	fi
-
-	# Change to the selected directory
-	cd "$dir" || return
+  [[ -n "$sel" ]] || { echo "No selection."; return 1; }
+  cd -- "$sel" || return
 }
-
 
 
 # ---------- tiny utils ----------
