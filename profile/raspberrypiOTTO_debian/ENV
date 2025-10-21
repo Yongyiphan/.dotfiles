@@ -1,5 +1,6 @@
 
 LOCAL_BIN="$HOME/.local/bin"
 GOTO_ROOTS="$HOME:/home/*/Documents:/home/*/Downloads:/home/*/Desktop"
-GOTO_IGNORE_FILE="$HOME/.config/.bash_find_ignore"
+# Profile-specific ignore file 
+GOTO_IGNORE_FILE="$HOME/.dotfiles/profiles/raspberrypiOTTO_debian/goto.ignore"
 
