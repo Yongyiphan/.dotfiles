@@ -31,6 +31,7 @@ local Utils = require("ega.core.utils")
 vmap("n", "Q", "<nop>", KeyOpts())
 vmap("v", "J", ":m '>+1<CR>gv=gv", KeyOpts())
 vmap("v", "K", ":m '<-2<CR>gv=gv", KeyOpts())
+vmap("i", "<M-e>", "<Esc>", KeyOpts())
 vmap("v", "<leader>r", "<cmd>lua vim.lsp.buf.rename()<CR>", KeyOpts("Rename"))
 
 vmap("x", "<leader>p", '"_dP', KeyOpts("Paste & Keep"))
@@ -66,7 +67,10 @@ vmap("n", "<leader>im", "<cmd>messages<CR>", KeyOpts("Sys Messages"))
 MapGroup["<leader>l"] = sections.l
 vmap("n", "<leader>ll", "<cmd>LspLog<CR>", KeyOpts("LSP Log"))
 vmap("n", "<leader>li", "<cmd>LspInfo<CR>", KeyOpts("Lsp Info"))
-vmap("n", "<leader>lr", "<cmd>LspRestart<CR>", KeyOpts("Lsp Restart"))
+vmap("n", "<leader>lr", function()
+	vim.cmd("LspStop")
+	vim.cmd("LspStart")
+end, KeyOpts("Lsp Restart"))
 
 --
 --Config
@@ -82,6 +86,7 @@ vmap("n", "<leader>cE", Custom.config.b_share_files, KeyOpts("Browse Share Files
 MapGroup["<leader>f"] = sections.f
 vmap("n", "<leader>fm", Custom.fzflua.main_fzf_files, KeyOpts("From C:"))
 vmap("n", "<leader>ff", Custom.telescope.find_files_custom, KeyOpts("Project File"))
+vmap("n", "<leader>,", Custom.telescope.find_files_custom, KeyOpts("Project File"))
 vmap("n", "<leader>fw", Custom.telescope.live_grep_files, KeyOpts("Word"))
 vmap("n", "<leader>fo", Custom.telescope.builtin.oldfiles, KeyOpts("Old Files"))
 vmap("n", "<leader>fg", Custom.git.G_git_files, KeyOpts("Git Files"))

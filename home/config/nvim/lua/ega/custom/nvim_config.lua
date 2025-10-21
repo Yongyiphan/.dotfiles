@@ -48,9 +48,9 @@ M.t_share_files = function()
 	ctele.t_find_files(share_files_dir, opts)
 end
 M.b_core_files = function()
-	ctele.file_explorer(core_files_dir)
+	ctele.open_file_explorer(core_files_dir)
 end
 M.b_share_files = function()
-	ctele.file_explorer(share_files_dir)
+	ctele.open_file_explorer(share_files_dir)
 end
 return M
