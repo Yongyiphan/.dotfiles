@@ -68,10 +68,21 @@ MapGroup["<leader>l"] = sections.l
 vmap("n", "<leader>ll", "<cmd>LspLog<CR>", KeyOpts("LSP Log"))
 vmap("n", "<leader>li", "<cmd>LspInfo<CR>", KeyOpts("Lsp Info"))
 vmap("n", "<leader>lr", function()
-	vim.cmd("LspStop")
-	vim.cmd("LspStart")
+	local lsp_utils = Custom.lsp.utils
+	if lsp_utils and lsp_utils.restart_attached then
+		lsp_utils.restart_attached()
+	else
+		vim.notify("lsp utils not available", vim.log.levels.ERROR)
+	end
 end, KeyOpts("Lsp Restart"))
-
+vmap("n", "<leader>lR", function()
+	local lsp_utils = Custom.lsp.utils
+	if lsp_utils and lsp_utils.restart_by_name then
+		lsp_utils.restart_by_name()
+	else
+		vim.notify("lsp utils not available", vim.log.levels.ERROR)
+	end
+end, KeyOpts("LSP: Restart by name"))
 --
 --Config
 --

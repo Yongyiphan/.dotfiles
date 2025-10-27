@@ -110,6 +110,8 @@ ln -sfn "$HOME/.config/tmux/tmux.conf" "$HOME/.tmux.conf" || :
 # 7) Manually expose selected scripts/setup tools into ~/.local/bin
 mkdir -p "$HOME/.local/bin"
 for SRC in \
+  "$DOTFILES/scripts/get_profile.sh" \
+  "$DOTFILES/scripts/detect-os.sh" \
   "$DOTFILES/scripts/ssh_setup.sh" \
   "$DOTFILES/scripts/get_packages.sh" \
   "$DOTFILES/setup/link-dotfiles.sh" \

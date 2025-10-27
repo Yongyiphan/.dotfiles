@@ -48,4 +48,4 @@ alias rmlock="remove_lock"
 githelp(){
 	guideline
 }
-
+alias fixsshkey='export SSH_AUTH_SOCK="$(tmux display -p "#{client_env:SSH_AUTH_SOCK}")"'

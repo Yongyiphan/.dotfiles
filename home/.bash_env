@@ -34,3 +34,4 @@ fi
 # Ensure ~/.local/bin is on PATH exactly once
 _path_prepend "$HOME/.local/bin"
 export PATH
+export USE_MACHINE_ID=0

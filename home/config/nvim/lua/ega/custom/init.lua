@@ -10,6 +10,7 @@ M.telescope = require("ega.custom.telescope")
 M.dap = require("ega.custom.dap")
 M.config = require("ega.custom.nvim_config")
 M.diagnostics = require("ega.custom.diagnostics")
+M.lsp = require("ega.custom.lsp")
 
 M.custom_setup = function()
 	require("nvim-web-devicons").setup()

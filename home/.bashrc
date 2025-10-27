@@ -8,6 +8,14 @@ esac
 # Load common environment
 [ -f "$HOME/.bash_env" ] && source "$HOME/.bash_env"
 
+: "${DOTFILES:=$HOME/.dotfiles}"
+
+# Load profile ENV (sets $DOTFILES_PROFILE) using your loader
+if [ -f "$DOTFILES/scripts/load-env.sh" ]; then
+  . "$DOTFILES/scripts/load-env.sh"
+  dot_load_env || true
+fi
+
 # --- BASHRC DEBUG (enable with: touch ~/.debug_bashrc) ---
 if [[ -f "$HOME/.debug_bashrc" ]]; then
   _dbg_log="$HOME/.bashrc.debug.$(date +%Y%m%d-%H%M%S).log"
@@ -122,7 +130,8 @@ case $- in *i*) set +o errexit 2>/dev/null; trap - ERR 2>/dev/null;; esac
 # put this in ~/.bashrc or a dotfile
 osc52() { local d; d=$(base64 -w0); printf '\e]52;c;%s\a' "$d" > /dev/tty; }
 
-if [ -f "$HOME/.dotfiles/scripts/load-env.sh" ]; then
-  case $- in *i*) . "$HOME/.dotfiles/scripts/load-env.sh"; dot_load_env || true ;; esac
+# Optional: run per-profile startup hooks (source-only)
+if [ -f "$DOTFILES/scripts/lib/hooks.sh" ]; then
+  . "$DOTFILES/scripts/lib/hooks.sh"
+  dot_profile_hook startup
 fi
-

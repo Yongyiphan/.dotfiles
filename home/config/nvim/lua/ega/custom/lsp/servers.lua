@@ -1,31 +1,43 @@
-local M = {}
+local M         = {}
+
+-- Dependencies
 local lspconfig = _G.call("lspconfig")
-if not lspconfig then return M end
-local caps = _G.call("cmp_nvim_lsp").default_capabilities()
+local cmp       = _G.call("cmp_nvim_lsp")
+local util      = _G.call("lspconfig.util")
 
--- pull in util here, at setup time
-local util = _G.call("lspconfig.util")
-if not util then return end
-
--- Load per-language settings
-local settings = {
-	_G.call("ega.custom.lsp.settings.c_cpp"),
-	_G.call("ega.custom.lsp.settings.lua_ls"),
-	_G.call("ega.custom.lsp.settings.python"),
-	_G.call("ega.custom.lsp.settings.cmake"),
-}
+-- Capabilities (guard cmp)
+local caps      = (cmp and cmp.default_capabilities())
+		or vim.lsp.protocol.make_client_capabilities()
+		
+-- Load per-language settings (insert only modules that resolved)
+local settings  = {}
+do
+	local names = {
+		"ega.custom.lsp.settings.c_cpp",
+		"ega.custom.lsp.settings.lua_ls",
+		"ega.custom.lsp.settings.python",
+		"ega.custom.lsp.settings.cmake",
+	}
+	for _, name in ipairs(names) do
+		local mod = _G.call(name)
+		if mod then table.insert(settings, mod) end
+	end
+end
 
 function M.get_settings()
 	return settings
 end
 
 function M.setup()
+	if not lspconfig or not util then
+		vim.notify("lspconfig/util not available; skipping servers.setup()", vim.log.levels.WARN)
+		return
+	end
 	for _, cfg in ipairs(settings) do
-		if cfg and cfg.name then
-			local opts = cfg.opts or {}
+		if cfg and cfg.name and lspconfig[cfg.name] then
+			local opts = vim.tbl_deep_extend("force", {}, cfg.opts or {})
 			opts.capabilities = caps
-			-- now apply root_dir if provided
-			if cfg.root_patterns then
+			if cfg.root_patterns and util.root_pattern then
 				opts.root_dir = util.root_pattern(table.unpack(cfg.root_patterns))
 			end
 			lspconfig[cfg.name].setup(opts)

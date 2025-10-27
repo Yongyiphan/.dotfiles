@@ -9,7 +9,7 @@ DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export DOTFILES
 
 # Detect OS
-source "$DOTFILES/setup/detect-os.sh"
+source "$DOTFILES/link/detect-os.sh"
 
 # Re-run installs & links
 # source "$DOTFILES/setup/install-packages.sh"
