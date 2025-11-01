@@ -28,7 +28,18 @@ local lazystatus, lazy = pcall(require, "lazy")
 if not lazystatus then
 	return
 end
-lazy.setup("ega.plugins", { ui = { border = "rounded" } })
+local profile = vim.g.NVIM_PROFILE
+local specs = {
+	{ import = "ega.plugins" },
+	{ import = ("profiles.%s.lsp.plugins"):format(profile) },
+	{ import = ("profiles.%s.dap.plugins"):format(profile) },
+}
+
+lazy.setup(specs, {
+	lockfile = vim.g.NVIM_LOCKFILE,
+	ui = { border = "rounded" }
+})
+
 require("ega.core.remap")
 
 vim.cmd("colorscheme nightfox")

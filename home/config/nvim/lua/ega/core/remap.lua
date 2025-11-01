@@ -164,7 +164,7 @@ if not dap then
 end
 MapGroup["<leader>d"] = sections.d
 MapGroup["<leader>du"] = sections.u
-require("ega.custom.dap.keybinding")
+Custom.dap.keybinding.setup()
 --
 --Register Key Groups
 --

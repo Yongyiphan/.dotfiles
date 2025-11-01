@@ -1,13 +1,15 @@
+require("ega.core.bootstrap").init({ scaffold = true })
+
 vim.g.mapleader = " "
 --TODO
 --On First Set Up
 --Add Main_Dir
 --Update /ignore/.fdignore_main
 
-_G.Main_Dir = "/mnt/c/Users/edgar/"
+_G.Main_Dir     = "/mnt/c/Users/edgar/"
 _G.Setup_Status = true
-_G.cwd = vim.fn.expand("%:p:h")
-_G.lua_version = "5.4"
+_G.cwd          = vim.fn.expand("%:p:h")
+_G.lua_version  = "5.4"
 
 require("ega.core")
 print("Complete Init")

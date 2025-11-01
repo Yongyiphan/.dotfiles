@@ -1,5 +1,6 @@
 local M = {}
 
+
 function M.setup()
 	-- Defer to avoid racing with servers loading
 	vim.api.nvim_create_autocmd("VimEnter", {
@@ -22,4 +23,3 @@ function M.setup()
 end
 
 return M
-
