@@ -37,6 +37,10 @@ M.lsp.lua_ls = {
 -- Use none-ls for formatting/diagnostics (strict: only if we declare sources)
 M.use_none_ls = true
 M.format_on_save.enable = true
+M.none_ls = {
+  formatting = {"stylua"},
+}
+
 
 -- STRICT: profile declares all none-ls sources (no defaults)
 M.hooks.none_ls_sources = function(b)

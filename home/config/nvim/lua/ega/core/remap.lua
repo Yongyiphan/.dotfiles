@@ -164,7 +164,14 @@ if not dap then
 end
 MapGroup["<leader>d"] = sections.d
 MapGroup["<leader>du"] = sections.u
-Custom.dap.keybinding.setup()
+
+if type(Custom) == "table"
+  and type(Custom.dap) == "table"
+  and type(Custom.dap.keybinding) == "table"
+  and type(Custom.dap.keybinding.setup) == "function"
+then
+  Custom.dap.keybinding.setup()
+end
 --
 --Register Key Groups
 --
