@@ -11,6 +11,8 @@ _G.Setup_Status = true
 _G.cwd          = vim.fn.expand("%:p:h")
 _G.lua_version  = "5.4"
 
+
+vim.g._lsp_boot_done = false 
 require("ega.core")
 print("Complete Init")
 

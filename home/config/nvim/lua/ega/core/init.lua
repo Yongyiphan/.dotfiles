@@ -31,8 +31,8 @@ end
 local profile = vim.g.NVIM_PROFILE
 local specs = {
 	{ import = "ega.plugins" },
-	{ import = ("profiles.%s.lsp.plugins"):format(profile) },
-	{ import = ("profiles.%s.dap.plugins"):format(profile) },
+	{ import = ("profiles.%s.plugins"):format(profile) },
+	{ import = ("profiles.%s.plugins"):format(profile) },
 }
 
 lazy.setup(specs, {

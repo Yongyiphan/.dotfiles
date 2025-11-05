@@ -13,7 +13,7 @@ local core_plugins = {
 	{ "windwp/nvim-autopairs" },
 	--snippets
 	{
-		"L3MON4D3/Luasnip",
+		"L3MON4D3/LuaSnip",
 		version = "v2.*",
 		build = "make install_jsregexp"
 	},
