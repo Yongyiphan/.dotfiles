@@ -30,5 +30,7 @@ init_profile_env() {
 }
 
 # If run directly, just print name (optional)
-[ "${BASH_SOURCE:-$0}" = "$0" ] && get_profile_name
+if [ "${BASH_SOURCE:-$0}" = "$0" ]; then
+	get_profile_name
+fi
 
