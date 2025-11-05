@@ -36,6 +36,11 @@ ensure_path_export() {
   fi
 }
 
+has_fuse() {
+  command -v fusermount >/dev/null 2>&1 || command -v fusermount3 >/dev/null 2>&1
+}
+
+
 install_min_deps() {
   local pm; pm="$(detect_pm)"
   case "$pm" in
@@ -98,27 +103,33 @@ install_nvim() {
   local kind="${kind_url%%::*}"
   local url="${kind_url#*::}"
 
-  if [ "$kind" = "APPIMAGE" ]; then
-    log "Downloading Neovim $NVIM_VERSION (AppImage)…"
-    curl -fL "$url" -o "$BIN_DIR/nvim"
-    chmod +x "$BIN_DIR/nvim"
-    # If FUSE missing, extract once
-    if ! "$BIN_DIR/nvim" --version >/dev/null 2>&1; then
-      log "AppImage failed to run (likely no FUSE). Extracting…"
-      ( cd "$BIN_DIR" && ./nvim --appimage-extract >/dev/null )
-      ln -sf "$BIN_DIR/squashfs-root/usr/bin/nvim" "$BIN_DIR/nvim"
-    fi
-  else
-    log "Downloading Neovim $NVIM_VERSION (tarball)…"
-    tmp="$(mktemp -d)"
-    curl -fL "$url" -o "$tmp/nvim.tgz"
-    tar -xzf "$tmp/nvim.tgz" -C "$tmp"
-    rm -f "$tmp/nvim.tgz"
-    rm -rf "$OPT_DIR/nvim-${NVIM_VERSION}" || true
-    mv "$tmp"/nvim-linux64 "$OPT_DIR/nvim-${NVIM_VERSION}"
-    ln -sf "$OPT_DIR/nvim-${NVIM_VERSION}/bin/nvim" "$BIN_DIR/nvim"
-    rm -rf "$tmp"
-  fi
+	if [ "${NVIM_FORCE_TARBALL:-0}" = "1" ]; then
+		kind="TARBALL"
+	fi
+
+	if [ "$kind" = "APPIMAGE" ]; then
+		log "Downloading Neovim $NVIM_VERSION (AppImage)…"
+		curl -fL "$url" -o "$BIN_DIR/nvim"
+		chmod +x "$BIN_DIR/nvim"
+
+		if has_fuse && "$BIN_DIR/nvim" --version >/dev/null 2>&1; then
+			: # runs fine with FUSE
+		else
+			log "FUSE not available or AppImage failed; extracting once…"
+			( cd "$BIN_DIR" && ./nvim --appimage-extract >/dev/null )
+			ln -sf "$BIN_DIR/squashfs-root/usr/bin/nvim" "$BIN_DIR/nvim"
+		fi
+	else
+		log "Downloading Neovim $NVIM_VERSION (tarball)…"
+		tmp="$(mktemp -d)"
+		curl -fL "$url" -o "$tmp/nvim.tgz"
+		tar -xzf "$tmp/nvim.tgz" -C "$tmp"
+		rm -f "$tmp/nvim.tgz"
+		rm -rf "$OPT_DIR/nvim-${NVIM_VERSION}" || true
+		mv "$tmp"/nvim-linux64 "$OPT_DIR/nvim-${NVIM_VERSION}"
+		ln -sf "$OPT_DIR/nvim-${NVIM_VERSION}/bin/nvim" "$BIN_DIR/nvim"
+		rm -rf "$tmp"
+	fi
 
   "$BIN_DIR/nvim" --version | head -n1
   log "Neovim installed at $BIN_DIR/nvim"
