@@ -14,8 +14,15 @@ function M.init(opts)
 	local PDIR    = CFG .. "/lua/profiles/" .. PROFILE -- fixed slash
 	local LDIR    = CFG .. "/locks"
 	
-	if vim.fn.isdirectory(PDIR) == 0 then vim.fn.mkdir(PDIR, "p") end
-	if vim.fn.isdirectory(LDIR) == 0 then vim.fn.mkdir(LDIR, "p") end
+	if vim.fn.isdirectory(PDIR) == 0 then
+		print("Creating PDIR: ", PDIR)
+		vim.fn.mkdir(PDIR, "p")
+	end
+	
+	if vim.fn.isdirectory(LDIR) == 0 then
+		print("Creating LDIR: ", LDIR)
+		vim.fn.mkdir(LDIR, "p")
+	end
 	
 	-- export for later (lazy lockfile, etc.)
 	vim.g.NVIM_PROFILE  = PROFILE
@@ -23,7 +30,7 @@ function M.init(opts)
 	
 	-- optional scaffolding
 	if opts.scaffold then
-		for _, sub in ipairs({ "lsp", "dap", "lsp/plugins", "dap/plugins" }) do
+		for _, sub in ipairs({ "lsp", "lsp/plugins", "lsp/settings", "dap", "dap/plugins", "dap/settings" }) do
 			local d = PDIR .. "/" .. sub
 			if vim.fn.isdirectory(d) == 0 then vim.fn.mkdir(d, "p") end
 			local i = PDIR .. "/" .. sub .. "/init.lua"

@@ -56,7 +56,7 @@ require(_G.rprofile .. ".dap.virtual_text")
 
 M.keybinding = {}
 M.keybinding.setup = function()
-	require(_G.profile .. ".dap.keybinding")
+	require(_G.rprofile .. ".dap.keybinding")
 end
 
 return M
