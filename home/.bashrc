@@ -135,3 +135,4 @@ if [ -f "$DOTFILES/scripts/lib/hooks.sh" ]; then
   . "$DOTFILES/scripts/lib/hooks.sh"
   dot_profile_hook startup
 fi
+export PATH="$HOME/.local/bin:$PATH"
