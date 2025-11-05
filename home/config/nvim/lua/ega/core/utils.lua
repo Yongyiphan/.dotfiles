@@ -22,6 +22,7 @@ function _G.call(plugin)
     )
     return nil
   end
+	if result == true then return nil end
 
   if _G.Core.LoadUpMsg then
     vim.notify(

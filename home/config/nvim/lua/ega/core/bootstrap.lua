@@ -42,6 +42,32 @@ function M.init(opts)
 		end
 	end
 
+	-- 1) helper: write content only if file is missing or empty
+  local function write_if_missing_or_empty(path, content)
+    local exists = vim.fn.filereadable(path) == 1
+    local empty = true
+    if exists then
+      local ok, lines = pcall(vim.fn.readfile, path)
+      empty = (not ok) or (#lines == 0)
+    end
+    if (not exists) or empty then
+      vim.fn.writefile(vim.split(content, "\n", { plain = true }), path)
+    end
+  end
+
+  -- 2) stubs for settings init.lua (so require() returns a table, not `true`)
+  local SETTINGS_STUB = table.concat({
+    "local M = {}",
+    "local names = {}",
+    "M.names = names",
+    "return M",
+    "",
+  }, "\n")
+
+  -- only these two get content; others can stay blank
+  write_if_missing_or_empty(PDIR .. "/lsp/settings/init.lua", SETTINGS_STUB)
+  write_if_missing_or_empty(PDIR .. "/dap/settings/init.lua", SETTINGS_STUB)
+
 	_G.profile = PROFILE
 	_G.rprofile = "profiles." .. PROFILE
 	return { profile = PROFILE, pdir = PDIR, locks = LDIR }

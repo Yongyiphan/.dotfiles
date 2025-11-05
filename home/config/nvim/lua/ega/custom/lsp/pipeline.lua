@@ -5,20 +5,26 @@ local M = {}
 
 -- discover ALL LanguageProfile modules (core + active profile), with profile override
 local function discover_profiles()
-  -- Resolve profile namespace root like: "ega.profiles.<PROFILE>.lsp"
-
   -- Safely require the name lists
   local core    = _G.call("ega.custom.lsp.settings")
   local profset = _G.call(_G.rprofile .. ".lsp.settings")
 
-  local core_names = (core and core.names) or {}
-  local prof_names = (profset and profset.names) or {}
+  -- If the module returns `true` (empty file) or anything non-table, ignore it
+  if type(core) ~= "table" then core = nil end
+  if type(profset) ~= "table" then profset = nil end
+
+  local function as_list(x)
+    return (type(x) == "table") and x or {}
+  end
+
+  local core_names = as_list(core and core.names)
+  local prof_names = as_list(profset and profset.names)
 
   local function load(ns_root, name)
     local mod = ns_root .. ".settings." .. name
-		local P = _G.call(mod)
+    local P = _G.call(mod)
     if type(P) == "table" then
-			print("Collecting: ", mod)
+      print("Collecting: ", mod)
       local lang = (P.meta and P.meta.lang) or name
       return { name = name, lang = lang, mod = mod, P = P }
     end
