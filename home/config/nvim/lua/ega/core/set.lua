@@ -20,6 +20,10 @@ local options = {
 		splitbelow = true,
 		encoding = "utf-8",
 		termguicolors = true,
+		backup = false,
+		writebackup = false,
+		backupcopy = "yes",
+		swapfile = true,
 	},
 }
 

@@ -35,7 +35,31 @@ vmap("i", "<M-e>", "<Esc>", KeyOpts())
 vmap("v", "<leader>r", "<cmd>lua vim.lsp.buf.rename()<CR>", KeyOpts("Rename"))
 
 vmap("x", "<leader>p", '"_dP', KeyOpts("Paste & Keep"))
-vmap("n", "<leader>w", [[:w<CR>]], KeyOpts("w"))
+vmap("n", "<leader>w", function()
+	vim.opt_local.readonly = false
+	if vim.bo.modifiable == false then
+		vim.bo.modifiable = true
+	end
+	-- try normal write first
+	local ok = pcall(vim.cmd, "write")
+	if not ok then
+		-- fall back to tee which bypasses rename-on-write and RO flag
+		vim.cmd([[silent! write !tee % >/dev/null]])
+		vim.cmd("edit!") -- reload and clear stale flags
+	end
+end, KeyOpts("Save"))
+
+vim.api.nvim_create_user_command("FixRO", function()
+	vim.opt_local.readonly = false
+	vim.bo.modifiable = true
+	-- try normal write
+	local ok = pcall(vim.cmd, "write")
+	if not ok then
+		vim.cmd([[silent! write !tee % >/dev/null]])
+		vim.cmd("edit!")
+	end
+end, {})
+
 vmap("n", "<leader>q", [[:q<CR>]], KeyOpts("q"))
 vmap("n", "<leader>y", "ggVGy<C-o>", KeyOpts("Yank Yall"))
 vmap("n", "<leader>x", "ggVGy<C-o>", KeyOpts("WQ"))
@@ -45,9 +69,10 @@ vmap("n", "<leader>x", "ggVGy<C-o>", KeyOpts("WQ"))
 --
 MapGroup["<leader>s"] = sections.s
 vmap("n", "<leader>sv", "<C-w>v", KeyOpts("Split vert"))
-vmap("n", "<leader>sh", "<C-w>s", KeyOpts("Split hort"))
+vmap("n", "<leader>ss", "<C-w>s", KeyOpts("Split hort"))
 vmap("n", "<leader>se", "<C-w>=", KeyOpts("Equal split size"))
 vmap("n", "<leader>sx", ":close<CR>", KeyOpts("Close curr split"))
+
 vmap("n", "<leader>sj", "<C-w>j", KeyOpts("Move to Above Split"))
 vmap("n", "<leader>sk", "<C-w>k", KeyOpts("Move to Below Split"))
 vmap("n", "<leader>sh", "<C-w>h", KeyOpts("Move to Left  Split"))
@@ -165,13 +190,14 @@ end
 MapGroup["<leader>d"] = sections.d
 MapGroup["<leader>du"] = sections.u
 
-if type(Custom) == "table"
-		and type(Custom.dap) == "table"
-		and type(Custom.dap.keybinding) == "table"
-		and type(Custom.dap.keybinding.setup) == "function"
-then
-	Custom.dap.keybinding.setup()
-end
+-- if type(Custom) == "table"
+-- 		and type(Custom.dap) == "table"
+-- 		and type(Custom.dap.keybinding) == "table"
+-- 		and type(Custom.dap.keybinding.setup) == "function"
+-- then
+-- 	Custom.dap.keybinding.setup()
+-- end
+
 --
 --Register Key Groups
 --
