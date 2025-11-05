@@ -75,72 +75,101 @@ install_min_deps() {
 # Return 0 if URL exists (HTTP 200), else non-zero
 url_ok() { curl -fsIL "$1" >/dev/null 2>&1; }
 
+# Return "APPIMAGE::<url>" or "TARBALL::<url>" for the current arch
 nvim_url_for_version() {
   local ver="v${NVIM_VERSION}"
-  # 0.11.1 lives in neovim-releases with the long AppImage filename
-  local app_urls=(
-    "https://github.com/neovim/neovim-releases/releases/download/${ver}/nvim-linux-x86_64.appimage"
-    "https://github.com/neovim/neovim/releases/download/${ver}/nvim.appimage"
-  )
-  local tar_urls=(
-    "https://github.com/neovim/neovim-releases/releases/download/${ver}/nvim-linux64.tar.gz"
-    "https://github.com/neovim/neovim/releases/download/${ver}/nvim-linux64.tar.gz"
-  )
+  local arch="$(uname -m)"
+  local app_url=""
+  local tar_url=""
 
-  for u in "${app_urls[@]}"; do
-    if curl -fsIL "$u" >/dev/null; then echo "APPIMAGE::$u"; return; fi
-  done
-  for u in "${tar_urls[@]}"; do
-    if curl -fsIL "$u" >/dev/null; then echo "TARBALL::$u"; return; fi
-  done
-  echo "NONE::" ; return 1
+  # AppImage (single binary)
+  app_url="https://github.com/neovim/neovim-releases/releases/download/${ver}/nvim-linux-x86_64.appimage"
+  if curl -fsIL "$app_url" >/dev/null 2>&1; then
+    echo "APPIMAGE::$app_url"; return 0
+  fi
+
+  # Tarball variants by arch
+  case "$arch" in
+    x86_64|amd64)
+      tar_url="https://github.com/neovim/neovim-releases/releases/download/${ver}/nvim-linux-x86_64.tar.gz"
+      ;;
+    aarch64|arm64)
+      tar_url="https://github.com/neovim/neovim-releases/releases/download/${ver}/nvim-linux-arm64.tar.gz"
+      ;;
+    *)
+      # Fallback to upstream name if unknown arch
+      tar_url="https://github.com/neovim/neovim/releases/download/${ver}/nvim-linux64.tar.gz"
+      ;;
+  esac
+
+  if curl -fsIL "$tar_url" >/dev/null 2>&1; then
+    echo "TARBALL::$tar_url"; return 0
+  fi
+
+  echo "NONE::"; return 1
 }
 
 install_nvim() {
   mkdir -p "$BIN_DIR" "$OPT_DIR"
   ensure_path_export
 
-  local kind_url
-  kind_url="$(nvim_url_for_version)" || { err "Could not find Neovim $NVIM_VERSION assets."; exit 1; }
-  local kind="${kind_url%%::*}"
-  local url="${kind_url#*::}"
+  local kind_url kind url tmp
+  kind_url="$(nvim_url_for_version)" || { err "Could not find Neovim $NVIM_VERSION assets for your arch."; exit 1; }
+  kind="${kind_url%%::*}"
+  url="${kind_url#*::}"
 
-	if [ "${NVIM_FORCE_TARBALL:-0}" = "1" ]; then
-		kind="TARBALL"
-	fi
+  if [ "${NVIM_FORCE_TARBALL:-0}" = "1" ]; then
+    kind="TARBALL"
+  fi
 
-	if [ "$kind" = "APPIMAGE" ]; then
-		log "Downloading Neovim $NVIM_VERSION (AppImage)…"
-		mkdir -p "$BIN_DIR"                     # ensure again before write
-		curl -fL "$url" -o "$BIN_DIR/nvim"
-		if ! curl -fL "$url" -o "$BIN_DIR/nvim"; then
-			err "Download failed. Verified URL but couldn’t write to $BIN_DIR/nvim. Check disk space/permissions."
-			exit 1
-		fi
-		chmod +x "$BIN_DIR/nvim"
+  if [ "$kind" = "APPIMAGE" ]; then
+    log "Downloading Neovim $NVIM_VERSION (AppImage)…"
+    tmp="$(mktemp --tmpdir nvim.app.XXXXXX || mktemp -t nvim.app)"
+    if ! curl -fL "$url" -o "$tmp"; then
+      warn "AppImage download failed, falling back to tarball"
+      NVIM_FORCE_TARBALL=1 install_nvim; return
+    fi
+    install -m 0755 "$tmp" "$BIN_DIR/nvim"
+    rm -f "$tmp"
 
-		if has_fuse && "$BIN_DIR/nvim" --version >/dev/null 2>&1; then
-			: # runs fine with FUSE
-		else
-			log "FUSE not available or AppImage failed; extracting once…"
-			( cd "$BIN_DIR" && ./nvim --appimage-extract >/dev/null )
-			ln -sf "$BIN_DIR/squashfs-root/usr/bin/nvim" "$BIN_DIR/nvim"
-		fi
-	else
-		log "Downloading Neovim $NVIM_VERSION (tarball)…"
-		tmp="$(mktemp -d)"
-		curl -fL "$url" -o "$tmp/nvim.tgz"
-		tar -xzf "$tmp/nvim.tgz" -C "$tmp"
-		rm -f "$tmp/nvim.tgz"
-		rm -rf "$OPT_DIR/nvim-${NVIM_VERSION}" || true
-		mv "$tmp"/nvim-linux64 "$OPT_DIR/nvim-${NVIM_VERSION}"
-		ln -sf "$OPT_DIR/nvim-${NVIM_VERSION}/bin/nvim" "$BIN_DIR/nvim"
-		rm -rf "$tmp"
-	fi
+    if has_fuse && "$BIN_DIR/nvim" --version >/dev/null 2>&1; then
+      :
+    else
+      log "FUSE not available or AppImage failed; extracting once…"
+      local exdir="$OPT_DIR/nvim-appimage-${NVIM_VERSION}"
+      rm -rf "$exdir"
+      mkdir -p "$exdir"
+      ( cd "$exdir" && "$BIN_DIR/nvim" --appimage-extract >/dev/null )
+      ln -sf "$exdir/squashfs-root/usr/bin/nvim" "$BIN_DIR/nvim"
+    fi
+  else
+    log "Downloading Neovim $NVIM_VERSION (tarball)…"
+    tmp="$(mktemp --tmpdir nvim.tgz.XXXXXX || mktemp -t nvim.tgz)"
+    if ! curl -fL "$url" -o "$tmp"; then
+      err "Tarball download failed from $url"; exit 1
+    fi
+    local dest="$OPT_DIR/nvim-${NVIM_VERSION}"
+    rm -rf "$dest"
+    mkdir -p "$OPT_DIR"
+    # Extract to a temp dir then move atomically
+    local tdir; tdir="$(mktemp -d "${OPT_DIR}/nvim.extract.XXXXXX" 2>/dev/null || mktemp -d)"
+    tar -xzf "$tmp" -C "$tdir"
+    rm -f "$tmp"
+    # The tarball unpacks to nvim-linux-<arch>
+    local unpack_dir
+    unpack_dir="$(find "$tdir" -maxdepth 1 -type d -name 'nvim-*' -print -quit)"
+    if [ -z "$unpack_dir" ]; then
+      err "Unexpected tarball layout; could not find nvim-* directory"; rm -rf "$tdir"; exit 1
+    fi
+    mv "$unpack_dir" "$dest"
+    rm -rf "$tdir"
+    ln -sf "$dest/bin/nvim" "$BIN_DIR/nvim"
+  fi
 
   "$BIN_DIR/nvim" --version | head -n1
   log "Neovim installed at $BIN_DIR/nvim"
 }
+
 
 install_clipboard_helper() {
   [ "$INSTALL_CLIPBOARD" = "1" ] || { log "Skipping clipboard helpers."; return; }
