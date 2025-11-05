@@ -2,9 +2,7 @@ local M = {}
 local settings = {}
 do
 	local names = {
-		"c_cpp",
 		"python",
-		"cmake",
 	}
 	for _, name in ipairs(names) do
 		local mod = _G.call(_G.rprofile .. ".lsp.settings." .. name)
