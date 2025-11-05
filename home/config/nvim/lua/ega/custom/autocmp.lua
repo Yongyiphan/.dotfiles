@@ -11,8 +11,11 @@ function M.setup()
   local ok_ap, autopairs = pcall(require, "nvim-autopairs")
   if not ok_ap then return end
 
+	vim.o.completeopt = "menu,menuone,noselect"
+
   -- Basic autopairs setup
   autopairs.setup({})
+  require("luasnip.loaders.from_vscode").lazy_load()
 
   -- Helper to detect when to trigger completion
   local has_words_before = function()
@@ -22,23 +25,27 @@ function M.setup()
     return not line:sub(col, col):match("%s")
   end
 
-  -- Load any VSCode‐style snippets you’ve installed
-  require("luasnip.loaders.from_vscode").lazy_load()
+	local types = require("cmp.types")
 
   -- Main nvim-cmp setup
   cmp.setup({
+		completion = {
+			autocomplete = {types.cmp.TriggerEvent.TextChanged},
+		},
     snippet = {
       expand = function(args)
         luasnip.lsp_expand(args.body)
       end,
     },
     sources = {
-      { name = "path" },
-      { name = "nvim_lsp" },
-      { name = "buffer" },
-      { name = "luasnip" },
+			{ name = "nvim_lsp" },
+			--{ name = "coplilot", group_index = 2 },
+			{ name = "luasnip" },
+      { name = "path", keyword_length = 0 },
+      { name = "buffer", keyword_length = 0 },
       { name = "nvim_lsp_signature_help" },
     },
+		experimental = {ghost_text = true},
     mapping = cmp.mapping.preset.insert({
       ["<CR>"]      = cmp.mapping.confirm({ select = true }),
       ["<C-Space>"] = cmp.mapping.complete(),
@@ -46,19 +53,20 @@ function M.setup()
       ["<Tab>"] = cmp.mapping(function(fallback)
         if cmp.visible() then
           cmp.select_next_item()
-        elseif luasnip.expand_or_jumpable() then
+        elseif luasnip.expand_or_jumpable and luasnip.expand_or_jumpable() then
           luasnip.expand_or_jump()
         elseif has_words_before() then
-          cmp.complete()
+					cmp.complete()
         else
           fallback()
+					-- cmp.complete()
         end
       end, { "i", "s" }),
 
       ["<S-Tab>"] = cmp.mapping(function(fallback)
         if cmp.visible() then
           cmp.select_prev_item()
-        elseif luasnip.jumpable(-1) then
+        elseif luasnip.jumpable and luasnip.jumpable(-1) then
           luasnip.jump(-1)
         else
           fallback()

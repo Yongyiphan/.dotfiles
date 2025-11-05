@@ -5,31 +5,21 @@ local P = {
 		"williamboman/mason.nvim",
 		cmd    = { "Mason", "MasonInstall", "MasonUpdate" },
 		build  = ":MasonUpdate",
+		event = "VeryLazy",
 		config = function()
-			local mason_mod = _G.call("ega.custom.lsp.mason")
-			if not mason_mod then return end
-			mason_mod.setup()
+			local ok, mason = pcall(require, "mason")
+			if ok then mason.setup({}) end
 		end,
 	},
 	-- Mason tool installer (servers + CLI tools)
 	{
 		"WhoIsSethDaniel/mason-tool-installer.nvim",
 		after = "mason.nvim",
-		config = function()
-			local mason_mod = _G.call("ega.custom.lsp.mason")
-			if not mason_mod then return end
-			mason_mod.setup_installer()
-		end,
 	},
 	-- Bridge Mason → LSPConfig
 	{
 		"williamboman/mason-lspconfig.nvim",
 		after = { "mason.nvim", "mason-tool-installer.nvim" },
-		config = function()
-			local mlsp = _G.call("ega.custom.lsp.mason_lsp")
-			if not mlsp then return end
-			mlsp.setup()
-		end,
 	},
 	-- Core LSP client
 	{
@@ -46,11 +36,12 @@ local P = {
 		"hrsh7th/nvim-cmp",
 		event        = "InsertEnter",
 		dependencies = {
+			"L3MON4D3/LuaSnip",
+			"saadparwaiz1/cmp_luasnip",
 			"hrsh7th/cmp-buffer",
 			"hrsh7th/cmp-path",
 			"hrsh7th/cmp-nvim-lsp",
 			"hrsh7th/cmp-nvim-lsp-signature-help",
-			"L3MON4D3/LuaSnip",
 			"windwp/nvim-autopairs",
 		},
 		config       = function()
@@ -59,16 +50,48 @@ local P = {
 			cmp_mod.setup()
 		end,
 	},
+	{
+			"hrsh7th/cmp-nvim-lsp",
+			lazy = false,
+	},
+	{ 
+		"zbirenbaum/copilot.lua",
+		lazy = false,  -- load early, before cmp
+		config = function()
+			require("copilot").setup({
+				suggestion = {
+					enabled = true,
+					auto_trigger = true,     -- show ghost text automatically
+					keymap = {
+						accept = "<C-l>",      -- avoid <Tab> conflict with your cmp/snippets
+						next   = "<M-]>",
+						prev   = "<M-[>",
+						dismiss= "<C-]>",
+					},
+				},
+				panel = { enabled = false },
+				filetypes = {
+					["*"] = true,            -- enable everywhere; tighten later if you want
+				},
+			})
+		end,
+	},
+	{ 
+		"zbirenbaum/copilot-cmp",
+		dependencies = 
+		{
+			"zbirenbaum/copilot.lua"
+		}, 
+		config = function()
+			require("copilot_cmp").setup()
+		end 
+	},
 	-- none-ls for formatting & diagnostics
 	{
 		"nvimtools/none-ls.nvim",
 		after        = "mason-lspconfig.nvim",
 		dependencies = { "nvim-lua/plenary.nvim" },
-		config       = function()
-			local ns = _G.call("ega.custom.lsp.null_ls")
-			if not ns then return end
-			ns.setup()
-		end,
+		event = {"BufReadPre", "BufNewFile", "BufReadPost"}
 	},
 	Languages
 }
