@@ -8,6 +8,8 @@ NVIM_VERSION="${NVIM_VERSION:-0.11.1}"   # keep pinned for consistency; override
 BIN_DIR="$HOME/.local/bin"
 OPT_DIR="$HOME/.local/opt"
 
+mkdir -p "$BIN_DIR" "$OPT_DIR"
+
 # Optional toggles (0/1)
 INSTALL_TOOLS="${INSTALL_TOOLS:-1}"       # ripgrep, fd (handy but not required)
 INSTALL_CLIPBOARD="${INSTALL_CLIPBOARD:-1}"
@@ -109,7 +111,12 @@ install_nvim() {
 
 	if [ "$kind" = "APPIMAGE" ]; then
 		log "Downloading Neovim $NVIM_VERSION (AppImage)…"
+		mkdir -p "$BIN_DIR"                     # ensure again before write
 		curl -fL "$url" -o "$BIN_DIR/nvim"
+		if ! curl -fL "$url" -o "$BIN_DIR/nvim"; then
+			err "Download failed. Verified URL but couldn’t write to $BIN_DIR/nvim. Check disk space/permissions."
+			exit 1
+		fi
 		chmod +x "$BIN_DIR/nvim"
 
 		if has_fuse && "$BIN_DIR/nvim" --version >/dev/null 2>&1; then
