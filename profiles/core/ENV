@@ -1,0 +1,8 @@
+
+LOCAL_BIN="$HOME/.local/bin"
+# Where to search (WSL): Windows user trees + your Linux home
+GOTO_ROOTS="/mnt/c/Users/*/Documents:/mnt/c/Users/*/Desktop:/mnt/c/Users/*/Downloads:$HOME"
+
+# Profile-specific ignore file 
+GOTO_IGNORE_FILE="$HOME/.dotfiles/profiles/EdgarPC_ubuntu/goto.ignore"
+

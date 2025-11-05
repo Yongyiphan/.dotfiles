@@ -1,0 +1,3 @@
+# name|version|url|strip_components|bin_globs
+# Example:
+# ripgrep|14.1.0|https://github.com/BurntSushi/ripgrep/releases/download/14.1.0/ripgrep-14.1.0-x86_64-unknown-linux-musl.tar.gz|1|ripgrep-*/rg
