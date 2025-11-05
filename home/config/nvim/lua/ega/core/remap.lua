@@ -35,8 +35,8 @@ vmap("i", "<M-e>", "<Esc>", KeyOpts())
 vmap("v", "<leader>r", "<cmd>lua vim.lsp.buf.rename()<CR>", KeyOpts("Rename"))
 
 vmap("x", "<leader>p", '"_dP', KeyOpts("Paste & Keep"))
-vmap("n", "<leader>w", [[:w<CR>]], KeyOpts("W"))
-vmap("n", "<leader>q", [[:q<CR>]], KeyOpts("Q"))
+vmap("n", "<leader>w", [[:w<CR>]], KeyOpts("w"))
+vmap("n", "<leader>q", [[:q<CR>]], KeyOpts("q"))
 vmap("n", "<leader>y", "ggVGy<C-o>", KeyOpts("Yank Yall"))
 vmap("n", "<leader>x", "ggVGy<C-o>", KeyOpts("WQ"))
 
@@ -166,11 +166,11 @@ MapGroup["<leader>d"] = sections.d
 MapGroup["<leader>du"] = sections.u
 
 if type(Custom) == "table"
-  and type(Custom.dap) == "table"
-  and type(Custom.dap.keybinding) == "table"
-  and type(Custom.dap.keybinding.setup) == "function"
+		and type(Custom.dap) == "table"
+		and type(Custom.dap.keybinding) == "table"
+		and type(Custom.dap.keybinding.setup) == "function"
 then
-  Custom.dap.keybinding.setup()
+	Custom.dap.keybinding.setup()
 end
 --
 --Register Key Groups

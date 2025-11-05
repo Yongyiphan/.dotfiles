@@ -11,10 +11,9 @@ M.statusline = require("ega.custom.statusline")
 M.telescope = require("ega.custom.telescope")
 M.config = require("ega.custom.nvim_config")
 M.diagnostics = require("ega.custom.diagnostics")
-M.none_ls = require("ega.custom.none-ls")
 
 M.custom_setup = function()
 	require("nvim-web-devicons").setup()
 end
 
-return M
+		return M

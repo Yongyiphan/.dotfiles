@@ -45,7 +45,11 @@ M.none_ls = {
 -- STRICT: profile declares all none-ls sources (no defaults)
 M.hooks.none_ls_sources = function(b)
   return {
-    b.formatting.stylua,
+    b.formatting.stylua.with({
+			condition = function(utils)
+				return utils.executable("stylua") == 1
+			end,
+		}),
     -- Optional diagnostics (enable only if you actually use them):
     -- b.diagnostics.selene.with({
     --   condition = function(utils)
