@@ -131,8 +131,9 @@ case $- in *i*) set +o errexit 2>/dev/null; trap - ERR 2>/dev/null;; esac
 osc52() { local d; d=$(base64 -w0); printf '\e]52;c;%s\a' "$d" > /dev/tty; }
 
 # Optional: run per-profile startup hooks (source-only)
-if [ -f "$DOTFILES/scripts/lib/hooks.sh" ]; then
-  . "$DOTFILES/scripts/lib/hooks.sh"
+if [ -f "$DOTFILES/lib/hooks.sh" ]; then
+	echo Running $DOFTILES hooks
+  . "$DOTFILES/lib/hooks.sh"
   dot_profile_hook startup
 fi
 export PATH="$HOME/.local/bin:$PATH"

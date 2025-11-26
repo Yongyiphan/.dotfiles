@@ -1,6 +1,8 @@
 local M = {}
-local names = {
+
+M.languages = {
 	"python",
 }
-M.names = names
+
+
 return M
