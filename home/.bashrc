@@ -132,7 +132,6 @@ osc52() { local d; d=$(base64 -w0); printf '\e]52;c;%s\a' "$d" > /dev/tty; }
 
 # Optional: run per-profile startup hooks (source-only)
 if [ -f "$DOTFILES/lib/hooks.sh" ]; then
-	echo Running $DOFTILES hooks
   . "$DOTFILES/lib/hooks.sh"
   dot_profile_hook startup
 fi
