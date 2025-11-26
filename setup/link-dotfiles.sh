@@ -114,6 +114,7 @@ for SRC in \
   "$DOTFILES/scripts/detect-os.sh" \
   "$DOTFILES/scripts/ssh_setup.sh" \
   "$DOTFILES/scripts/get_packages.sh" \
+  "$DOTFILES/scripts/tmux_utils.sh" \
   "$DOTFILES/setup/link-dotfiles.sh" \
   "$DOTFILES/scripts/dotfiles-menu.sh" \
   "$DOTFILES/scripts/utils.sh" \

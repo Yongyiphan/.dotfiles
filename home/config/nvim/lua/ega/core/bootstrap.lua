@@ -30,7 +30,7 @@ function M.init(opts)
 	
 	-- optional scaffolding
 	if opts.scaffold then
-		for _, sub in ipairs({ "lsp", "lsp/plugins", "lsp/settings", "dap", "dap/plugins", "dap/settings" }) do
+		for _, sub in ipairs({ "lsp", "dap", "dap/plugins", "dap/settings" }) do
 			local d = PDIR .. "/" .. sub
 			if vim.fn.isdirectory(d) == 0 then
 				vim.fn.mkdir(d, "p")
@@ -65,7 +65,6 @@ function M.init(opts)
 	}, "\n")
 	
 	-- only these two get content; others can stay blank
-	write_if_missing_or_empty(PDIR .. "/lsp/settings/init.lua", SETTINGS_STUB)
 	write_if_missing_or_empty(PDIR .. "/dap/settings/init.lua", SETTINGS_STUB)
 	
 	_G.profile = PROFILE
