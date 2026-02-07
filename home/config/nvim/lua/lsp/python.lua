@@ -18,8 +18,9 @@ local function detect_venv_root()
 	
 	while current_dir and current_dir ~= "/" do
 		for _, venv_name in ipairs(venv_names) do
-			local venv_path = current_dir .. venv_name
+			local venv_path = current_dir .. "/" .. venv_name
 			local activate_path = venv_path .. "/bin/activate"
+
 			
 			-- Check if activate script exists (most reliable venv indicator)
 			if vim.fn.filereadable(activate_path) == 1 then
@@ -71,31 +72,80 @@ S.none_ls = {
 
 -- format-on-save
 S.format_on_save.enable = false
-S.format_on_save.vars = { line_length = 100 }
+S.format_on_save.vars = { line_length = 100, force_line_length = false }
 
 -- Provide all null-ls sources with correct config
 S.hooks.none_ls_sources = function(builtins)
-	local venv_bin = detect_venv_root()
-	
-	return {
-		builtins.formatting.black.with({
-			prefer_local = venv_bin, -- nil means system-wide
-			extra_args = { "--line-length", tostring(S.format_on_save.vars.line_length or 100) },
-		}),
-		builtins.formatting.isort.with({
-			prefer_local = venv_bin,
-			extra_args = { "--profile", "black", "--line-length", tostring(S.format_on_save.vars.line_length or 100) },
-		}),
-		builtins.diagnostics.pylint.with({
-			prefer_local = venv_bin,
-			extra_args = { "--init-hook", "import sys, os; sys.path.append(os.getcwd())" },
-		}),
-		builtins.diagnostics.mypy.with({
-			prefer_local = venv_bin,
-			extra_args = { "--python-executable", (venv_bin or ""):gsub("/bin$", "") .. "/bin/python" },
-		}),
-		builtins.code_actions.refactoring,
-	}
+  local venv_bin = detect_venv_root()
+
+  -- Resolve venv python explicitly (prefer python3, fallback to python)
+  local venv_python = nil
+  if venv_bin then
+    local p3 = venv_bin .. "/python3"
+    local p  = venv_bin .. "/python"
+    if vim.fn.executable(p3) == 1 then
+      venv_python = p3
+    elseif vim.fn.executable(p) == 1 then
+      venv_python = p
+    end
+  end
+
+  -- Prefer using pyproject.toml. Only set line length if you want an override.
+  local black_args = {}
+  local isort_args = { "--profile", "black" }
+
+  if S.format_on_save and S.format_on_save.vars and S.format_on_save.vars.force_line_length then
+    local ll = tostring(S.format_on_save.vars.line_length or 100)
+    black_args = { "--line-length", ll }
+    isort_args = { "--profile", "black", "--line-length", ll }
+  end
+
+  -- Pylint:
+  -- If venv found, force: <venv_python> -m pylint ...
+  -- Else fallback to system pylint.
+  local pylint_source
+  if venv_python then
+    pylint_source = builtins.diagnostics.pylint.with({
+			command = venv_bin and (venv_bin .. "/pylint") or "pylint",
+			extra_args = {
+				"--init-hook",
+				"import os, sys; sys.path.insert(0, os.getcwd())",
+				"--rcfile",
+				"pyproject.toml",
+    },
+  })
+  else
+    pylint_source = builtins.diagnostics.pylint.with({
+      -- fallback to PATH pylint
+      extra_args = {
+        "--init-hook", "import os, sys; sys.path.insert(0, os.getcwd())",
+        "--rcfile=pyproject.toml",
+      },
+    })
+  end
+
+  -- Mypy: only pass --python-executable if venv found
+  local mypy_extra = {}
+  if venv_python then
+    mypy_extra = { "--python-executable", venv_python }
+  end
+
+  return {
+    builtins.formatting.black.with({
+      prefer_local = venv_bin,
+      extra_args = black_args,
+    }),
+    builtins.formatting.isort.with({
+      prefer_local = venv_bin,
+      extra_args = isort_args,
+    }),
+    pylint_source,
+    builtins.diagnostics.mypy.with({
+      prefer_local = venv_bin,
+      extra_args = mypy_extra,
+    }),
+    builtins.code_actions.refactoring,
+  }
 end
 
 -- keep default none-ls on_attach (your pipeline wraps its own anyway)
