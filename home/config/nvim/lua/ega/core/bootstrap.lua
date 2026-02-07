@@ -12,21 +12,15 @@ function M.init(opts)
 	local PROFILE = current_profile()
 	local CFG     = vim.fn.stdpath("config")          -- ~/.config/nvim
 	local PDIR    = CFG .. "/lua/profiles/" .. PROFILE -- fixed slash
-	local LDIR    = CFG .. "/locks"
 	
 	if vim.fn.isdirectory(PDIR) == 0 then
 		print("Creating PDIR: ", PDIR)
 		vim.fn.mkdir(PDIR, "p")
 	end
 	
-	if vim.fn.isdirectory(LDIR) == 0 then
-		print("Creating LDIR: ", LDIR)
-		vim.fn.mkdir(LDIR, "p")
-	end
-	
 	-- export for later (lazy lockfile, etc.)
 	vim.g.NVIM_PROFILE = PROFILE
-	vim.g.NVIM_LOCKFILE = LDIR .. "/lazy-lock-" .. PROFILE .. ".json"
+	vim.g.NVIM_LOCKFILE = PDIR .. "/lazy-lock-" .. PROFILE .. ".json"
 	
 	-- optional scaffolding
 	if opts.scaffold then
@@ -69,7 +63,7 @@ function M.init(opts)
 	
 	_G.profile = PROFILE
 	_G.rprofile = "profiles." .. PROFILE
-	return { profile = PROFILE, pdir = PDIR, locks = LDIR }
+	return { profile = PROFILE, pdir = PDIR, locks = PDIR }
 end
 
 return M

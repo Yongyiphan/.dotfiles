@@ -36,22 +36,22 @@ local specs = {
 
 -- Set global profile reference for plugins that need it
 
--- Get list of enabled languages for current profile
-local ok, profile_lsp_settings = pcall(require, ("profiles.%s.lsp.settings"):format(profile))
-
-if ok and profile_lsp_settings and type(profile_lsp_settings.languages) == "table" then
-	for _, lang in ipairs(profile_lsp_settings.languages) do
-		local lang_ok, lang_def = pcall(require, ("ega.custom.lsp.settings.%s"):format(lang))
-		
-		if lang_ok and lang_def and type(lang_def.plugins) == "table" then
-			-- Insert all plugin specs from this language
-			vim.list_extend(specs, lang_def.plugins)
-			print(string.format("[LSP] ✅ Added %d plugins for %s", #lang_def.plugins, lang))
-		end
-	end
-else
-	vim.notify(string.format("[LSP] No languages configured for profile '%s'", profile), vim.log.levels.WARN)
-end
+-- -- Get list of enabled languages for current profile
+-- local ok, profile_lsp_settings = pcall(require, ("profiles.%s.lsp.settings"):format(profile))
+--
+-- if ok and profile_lsp_settings and type(profile_lsp_settings.languages) == "table" then
+-- 	for _, lang in ipairs(profile_lsp_settings.languages) do
+-- 		local lang_ok, lang_def = pcall(require, ("ega.custom.lsp.settings.%s"):format(lang))
+-- 		
+-- 		if lang_ok and lang_def and type(lang_def.plugins) == "table" then
+-- 			-- Insert all plugin specs from this language
+-- 			vim.list_extend(specs, lang_def.plugins)
+-- 			print(string.format("[LSP] ✅ Added %d plugins for %s", #lang_def.plugins, lang))
+-- 		end
+-- 	end
+-- else
+-- 	vim.notify(string.format("[LSP] No languages configured for profile '%s'", profile), vim.log.levels.WARN)
+-- end
 
 
 lazy.setup(specs, {
