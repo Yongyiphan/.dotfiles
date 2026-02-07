@@ -33,3 +33,14 @@ start() {
     echo "No virtual environment found in current or parent directories."
     return 1
 }
+
+restart_ssh() {
+    echo "Restarting SSH Agent..."
+
+    # Detect if inside a tmux session
+    if [ -n "$TMUX" ]; then
+        echo "Detected inside a tmux session."
+        eval $(tmux show-env -s SSH_AUTH_SOCK)
+        echo "✓ SSH_AUTH_SOCK reassigned in tmux session: $SSH_AUTH_SOCK"
+    fi
+}
