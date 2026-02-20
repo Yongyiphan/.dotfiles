@@ -23,7 +23,7 @@ S.files.filetypes = {
 -- LSP: vtsls (modern TS/JS/JSX/TSX server)
 S.lsp.vtsls = {
   enabled = true,
-  cmd = { "vtsls" },
+  cmd = { "vtsls", "--stdio" },
   root_dir_markers = {
     "tsconfig.json",
     "jsconfig.json",
