@@ -12,25 +12,19 @@ function M.init(opts)
 	local PROFILE = current_profile()
 	local CFG     = vim.fn.stdpath("config")          -- ~/.config/nvim
 	local PDIR    = CFG .. "/lua/profiles/" .. PROFILE -- fixed slash
-	local LDIR    = CFG .. "/locks"
 	
 	if vim.fn.isdirectory(PDIR) == 0 then
 		print("Creating PDIR: ", PDIR)
 		vim.fn.mkdir(PDIR, "p")
 	end
 	
-	if vim.fn.isdirectory(LDIR) == 0 then
-		print("Creating LDIR: ", LDIR)
-		vim.fn.mkdir(LDIR, "p")
-	end
-	
 	-- export for later (lazy lockfile, etc.)
 	vim.g.NVIM_PROFILE = PROFILE
-	vim.g.NVIM_LOCKFILE = LDIR .. "/lazy-lock-" .. PROFILE .. ".json"
+	vim.g.NVIM_LOCKFILE = PDIR .. "/lazy-lock-" .. PROFILE .. ".json"
 	
 	-- optional scaffolding
 	if opts.scaffold then
-		for _, sub in ipairs({ "lsp", "lsp/plugins", "lsp/settings", "dap", "dap/plugins", "dap/settings" }) do
+		for _, sub in ipairs({ "lsp", "dap", "dap/plugins", "dap/settings" }) do
 			local d = PDIR .. "/" .. sub
 			if vim.fn.isdirectory(d) == 0 then
 				vim.fn.mkdir(d, "p")
@@ -65,12 +59,11 @@ function M.init(opts)
 	}, "\n")
 	
 	-- only these two get content; others can stay blank
-	write_if_missing_or_empty(PDIR .. "/lsp/settings/init.lua", SETTINGS_STUB)
 	write_if_missing_or_empty(PDIR .. "/dap/settings/init.lua", SETTINGS_STUB)
 	
 	_G.profile = PROFILE
 	_G.rprofile = "profiles." .. PROFILE
-	return { profile = PROFILE, pdir = PDIR, locks = LDIR }
+	return { profile = PROFILE, pdir = PDIR, locks = PDIR }
 end
 
 return M

@@ -1,8 +1,12 @@
 local M = {}
 
-local names = {
-	"python",
-}
+M.languages = vim.list_extend(
+	vim.deepcopy(require("profiles.default.lsp").languages),
+	{
+		"python",
+		"typescript",
+	}
+)
 
-M.names = names
+
 return M

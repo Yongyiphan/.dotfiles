@@ -1,4 +1,6 @@
 --@type LanguageProfile
+local FullProfile = {}
+local plugins = {}
 local M = {}
 M.meta = {
 	lang = "template",
@@ -8,7 +10,7 @@ M.meta = {
 M.tools = {}
 
 M.files = {
-	filetypes = {"template"},
+	filetypes = { "template" },
 	patterns = {},
 }
 
@@ -42,17 +44,20 @@ M.hooks = {
 	--- Build and return an array of none-ls sources.
 	---@param builtins table  -- null_ls.builtins
 	---@return table          -- list of sources
-	none_ls_sources = nil,   -- function(builtins) return { builtins.formatting.black, ... } end
-
+	none_ls_sources = nil, -- function(builtins) return { builtins.formatting.black, ... } end
+	
 	--- Called by none-ls on_attach; return false to skip adding the default BufWritePre.
 	---@param client vim.lsp.Client
 	---@param bufnr integer
 	---@return boolean|nil    -- return false to disable default on_attach formatter
 	none_ls_on_attach = nil, -- function(client, bufnr) end
-
+	
 	--- Buffer-local external formatter. If provided, pipeline won’t run the default CLI chain.
 	---@param opts {filename:string, bufnr:integer, line_length:integer}
-	external_cli = nil,      -- function(opts) end
+	external_cli = nil, -- function(opts) end
 }
 
-return M
+FullProfile.plugins = plugins
+FullProfile.settings = M
+
+return FullProfile

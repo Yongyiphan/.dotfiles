@@ -3,71 +3,69 @@ local Installer = require("ega.custom.lsp.language_installer")
 
 local M = {}
 
--- discover ALL LanguageProfile modules (core + active profile), with profile override
-local function discover_profiles()
-	-- Safely require the name lists
-	local core    = _G.call("ega.custom.lsp.settings")
-	local profset = _G.call(_G.rprofile .. ".lsp.settings")
+-- ============================================================================
+-- Language Discovery & Loading
+-- ============================================================================
+
+---@return string[] List of enabled languages (with default profile fallback)
+local function discover_enabled_languages()
+	-- Try current profile first
+	local profile_lsp_mod = string.format("%s.lsp", _G.rprofile)
+	local mod = _G.call(profile_lsp_mod)
 	
-	-- If the module returns `true` (empty file) or anything non-table, ignore it
-	if type(core) ~= "table" then core = nil end
-	if type(profset) ~= "table" then profset = nil end
-	
-	local function as_list(x)
-		return (type(x) == "table") and x or {}
+	if mod and type(mod.languages) == "table" and #mod.languages > 0 then
+		print(string.format("[LSP] ✅ Using languages from profile '%s'", _G.rprofile))
+		return mod.languages
 	end
 	
-	local core_names = as_list(core and core.names)
-	local prof_names = as_list(profset and profset.names)
+	-- Fall back to default profile
+	local default_mod = _G.call("profiles.default.lsp")
+	if default_mod and type(default_mod.languages) == "table" then
+		vim.notify(string.format("[LSP] Profile '%s' has no languages, using defaults", _G.rprofile), vim.log.levels.INFO)
+		return default_mod.languages
+	end
 	
-	local function load(ns_root, name)
-		local mod = ns_root .. ".settings." .. name
-		local P = _G.call(mod)
-		if type(P) == "table" then
-			print("Collecting: ", mod)
-			local lang = (P.meta and P.meta.lang) or name
-			return { name = name, lang = lang, mod = mod, P = P }
-		end
+	-- Last resort
+	vim.notify("[LSP] No languages defined anywhere, using fallback", vim.log.levels.WARN)
+	return { "lua" }
+end
+
+---@param lang string Language name
+---@return table|nil FullProfile with .plugins and .settings
+local function load_language_definition(lang)
+	local def_mod = string.format("lsp.%s", lang)
+	local def = _G.call(def_mod)
+	
+	if not def or not def.settings then
+		print(string.format("[LSP] ❌ Invalid definition for '%s' at lsp/%s.lua", lang, lang))
 		return nil
 	end
 	
-	local out, seen = {}, {}
-	
-	-- 1) profile-defined names first (override core)
-	for _, name in ipairs(prof_names) do
-		local item = load(_G.rprofile .. ".lsp", name)
-		if item then
-			out[#out + 1] = item
-			seen[name] = true
-		end
-	end
-	
-	-- 2) any core names not provided by profile
-	for _, name in ipairs(core_names) do
-		if not seen[name] then
-			local item = load("ega.custom.lsp", name)
-			if item then out[#out + 1] = item end
-		end
-	end
-	
-	return out
+	return def
 end
 
-local function as_list(v) return type(v) == "string" and { v } or (type(v) == "table" and v or {}) end
+-- ============================================================================
+-- LSP Server Management
+-- ============================================================================
 
--- In pipeline.lua, modify start_lsp:
+local function as_list(v)
+	return type(v) == "string" and { v } or (type(v) == "table" and v or {})
+end
+
 local function start_lsp(name, spec, caps)
 	if not spec or spec.enabled == false then return end
 	
-	local root_markers = as_list(spec.root_dir_markers)
+	local root_markers = as_list(spec.root_dir_markers or {})
 	local cmd = as_list(spec.cmd)
 	local fts = as_list(spec.filetypes or {})
 	
-	local group_name = ("LSP_%s"):format(name)
+	if #fts == 0 then return end
+	
+	local group_name = "LSP_" .. name
 	local aug = vim.api.nvim_create_augroup(group_name, { clear = true })
 	
 	vim.api.nvim_create_autocmd("FileType", {
-		group = aug, -- Add group
+		group = aug,
 		pattern = fts,
 		callback = function(args)
 			local clients = vim.lsp.get_clients({ bufnr = args.buf, name = name })
@@ -84,103 +82,87 @@ local function start_lsp(name, spec, caps)
 				end
 			end
 			
-			local caps
-			local ok, cmp_nvim_lsp = pcall(require, "cmp_nvim_lsp")
-			if ok then
-				caps = cmp_nvim_lsp.default_capabilities()
-			else
-				caps = vim.lsp.protocol.make_client_capabilities()
-			end
-			
 			vim.lsp.start({
 				name = name,
 				cmd = cmd,
 				root_dir = root_dir,
 				settings = spec.settings,
 				capabilities = caps,
-			}, {
-				bufnr = args.buf,
-			})
+			}, { bufnr = args.buf })
 		end,
 	})
 end
 
-local all_none_ls_sources = {}
-local none_ls_setup_done = false
+-- ============================================================================
+-- null-ls Integration
+-- ============================================================================
 
-local function setup_none_ls(P)
-	print("Setup: none-ls for", P.meta and P.meta.lang or "unknown")
-	local null_ls = _G.call("null-ls")
-	if not null_ls then return end
-	
-	if not (P.hooks and type(P.hooks.none_ls_sources) == "function") then
+local function setup_none_ls(P, sources_accumulator)
+	if not P.hooks or type(P.hooks.none_ls_sources) ~= "function" then
 		return
 	end
 	
-	local sources = P.hooks.none_ls_sources(null_ls.builtins)
-	if type(sources) ~= "table" or #sources == 0 then
-		return
-	end
+	local sources = P.hooks.none_ls_sources(require("null-ls").builtins)
+	if type(sources) ~= "table" or #sources == 0 then return end
 	
-	-- Accumulate sources from all profiles
+	-- Register with filetype filtering
+	local filetypes = P.files and P.files.filetypes or {}
 	for _, src in ipairs(sources) do
-		table.insert(all_none_ls_sources, src.with({
-			condition = function(utils)
-				local name = src.name or ""    -- e.g. "stylua", "selene"
-				return utils.executable(name) == 1 -- only register if found
-			end,
+		table.insert(sources_accumulator, src.with({
+			filetypes = #filetypes > 0 and filetypes or nil,
 		}))
 	end
 end
 
--- Add new function to setup none-ls once with all sources:
-local function finalize_none_ls()
-	if #all_none_ls_sources == 0 then return end
+local function finalize_none_ls(sources)
+	if #sources == 0 then return end
 	
 	local null_ls = _G.call("null-ls")
 	if not null_ls then return end
 	
-	print("Finalizing none-ls with", #all_none_ls_sources, "sources")
+	if vim.g._null_ls_setup_done then
+		print("[LSP] null-ls already fully configured")
+		return
+	end
+	
+	print(string.format("[LSP] Finalizing none-ls with %d sources", #sources))
+	
+	-- Build skip list for auto-format
+	local skip_format_for_ft = {}
+	for _, def in pairs(M._loaded_defs or {}) do
+		local P = def.settings
+		if P.format_on_save and P.format_on_save.enable == false then
+			for _, ft in ipairs(P.files and P.files.filetypes or {}) do
+				skip_format_for_ft[ft] = true
+			end
+		end
+	end
 	
 	null_ls.setup({
-		sources = all_none_ls_sources,
+		sources = sources,
 		on_attach = function(client, bufnr)
 			if not client.supports_method("textDocument/formatting") then return end
-			-- mark: this buffer has its own formatter, so skip global
-			vim.b[bufnr] = vim.b[bufnr] or {}
-			vim.b[bufnr].ega_local_format = true
 			
-			local grp = vim.api.nvim_create_augroup("EgaFormatOnSaveLocal", { clear = false })
-			vim.api.nvim_clear_autocmds({ group = grp, buffer = bufnr })
+			local ft = vim.api.nvim_get_option_value("filetype", { buf = bufnr })
+			
+			-- Skip auto-format if disabled for this filetype
+			if skip_format_for_ft[ft] then
+				return
+			end
+			
+			-- Only create autocmd if enabled
 			vim.api.nvim_create_autocmd("BufWritePre", {
-				group = grp,
+				group = vim.api.nvim_create_augroup("EgaFormatOnSave", { clear = false }),
 				buffer = bufnr,
 				callback = function()
-					-- Does this buffer actually have a formatting-capable none/null-ls?
-					local has_none = false
-					for _, c in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
-						if (c.name == "null-ls" or c.name == "none-ls")
-								and c.supports_method("textDocument/formatting") then
-							has_none = true
-							break
-						end
-					end
-					
-					if has_none then
-						-- name="null-ls" targets none-ls too
-						vim.lsp.buf.format({ bufnr = bufnr, async = false, name = "null-ls", timeout_ms = 3000 })
-					else
-						-- graceful fallback to any formatter (e.g. lua_ls)
-						vim.lsp.buf.format({ bufnr = bufnr, async = false, timeout_ms = 3000 })
-					end
+					vim.lsp.buf.format({ bufnr = bufnr, async = false, timeout_ms = 3000 })
 				end,
 			})
-		end
+		end,
 	})
 	
-	vim.g._none_ls_setup_done = true
+	vim.g._null_ls_setup_done = true
 end
-
 
 -- STRICT: only run if profile declares steps (or a dynamic steps hook)
 local function setup_external_cli(P)
@@ -272,36 +254,58 @@ local function setup_external_cli(P)
 end
 
 
--- Public: wire ALL languages declared under active profile
+-- ============================================================================
+-- Main Setup
+-- ============================================================================
 function M.setup_all()
-	local mods = discover_profiles()
-	local cmp = _G.call and _G.call("cmp_nvim_lsp")
+	local enabled_langs = discover_enabled_languages()
+	if #enabled_langs == 0 then
+		vim.notify("[LSP] No languages enabled", vim.log.levels.ERROR)
+		return
+	end
+	
+	-- Load all definitions first
+	M._loaded_defs = {}
+	for _, lang in ipairs(enabled_langs) do
+		local def = load_language_definition(lang)
+		if def then
+			M._loaded_defs[lang] = def
+		end
+	end
+	
+	-- Setup each language
+	local all_none_ls_sources = {}
+	local cmp = _G.call("cmp_nvim_lsp")
 	local caps = (cmp and cmp.default_capabilities()) or vim.lsp.protocol.make_client_capabilities()
 	
-	for _, item in ipairs(mods) do
-		local P = item.P
+	for _, def in pairs(M._loaded_defs) do
+		local P = def.settings
 		
-		-- Install tools per-profile (Mason + custom)
+		-- Install tools
 		Installer.ensure(P, {
 			use_mason = true,
 			use_mason_tool_installer = true,
-			mason_setup = true, -- since you removed separate mason setup
+			mason_setup = true,
 			auto_install_with_mason = false,
 			log = false,
 		})
 		
-		-- Start all LSP servers
+		-- Start LSP servers
 		for name, spec in pairs(P.lsp or {}) do
-			spec.filetypes = spec.filetypes or P.files.filetypes
+			spec.filetypes = spec.filetypes or (P.files and P.files.filetypes)
 			start_lsp(name, spec, caps)
 		end
 		
-		-- Formatting path (per profile)
-		if P.use_none_ls then setup_none_ls(P) else setup_external_cli(P) end
+		-- Setup formatting
+		if P.use_none_ls then
+			setup_none_ls(P, all_none_ls_sources)
+		else
+			setup_external_cli(P)
+		end
 	end
-	Installer.finalize_mti()
 	
-	finalize_none_ls()
+	Installer.finalize_mti()
+	finalize_none_ls(all_none_ls_sources)
 end
 
 return M
