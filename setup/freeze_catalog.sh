@@ -1,145 +1,87 @@
 #!/usr/bin/env bash
-# ~/.dotfiles/scripts/freeze_catalog.sh
-# Capture package "specs" for the *active* dotfiles profile.
-# - By default, requires the profile to already exist (no silent creation).
-# - Optional --profile NAME to override.
-# - Optional --init to create the profile skeleton iff missing.
+# Freeze package-manager state for the active or selected dotfiles profile.
+# This script captures raw package-manager snapshots, then writes normalized
+# resolved state and drift reports against the tracked catalog manifests.
 
 set -euo pipefail
 
-DOTFILES="${DOTFILES:-$HOME/.dotfiles}"
+_dotfiles_root() {
+  local here="${BASH_SOURCE[0]}"
+  while [ -L "$here" ]; do
+    local link
+    link="$(readlink "$here")"
+    here="$(cd "$(dirname "$here")" && cd "$(dirname "$link")" && pwd)/$(basename "$link")"
+  done
+  cd "$(dirname "$here")/.." >/dev/null 2>&1 && pwd
+}
+
+DOTFILES_ROOT="${DOTFILES_ROOT:-${DOTFILES:-$(_dotfiles_root)}}"
+
+if [ ! -f "$DOTFILES_ROOT/lib/profile.sh" ]; then
+  echo "freeze_catalog: missing $DOTFILES_ROOT/lib/profile.sh" >&2
+  exit 1
+fi
+if [ ! -f "$DOTFILES_ROOT/setup/resolve_catalog.sh" ]; then
+  echo "freeze_catalog: missing $DOTFILES_ROOT/setup/resolve_catalog.sh" >&2
+  exit 1
+fi
+
+# shellcheck disable=SC1090
+. "$DOTFILES_ROOT/lib/profile.sh"
+# shellcheck disable=SC1090
+. "$DOTFILES_ROOT/setup/resolve_catalog.sh"
 
 usage() {
   cat <<EOF
 Usage: $(basename "$0") [--profile NAME] [--init]
 
   --profile NAME   Use this profile name instead of the computed get_profile_name()
-  --init           If the profile directory is missing, create: ENV + specs/ + startup.d/
-
-Examples:
-  $(basename "$0")
-  $(basename "$0") --profile <PROFILE_NAME> 
-  $(basename "$0") --init
+  --init           Create a minimal profile scaffold if missing
 EOF
 }
 
-# ---------------- args ----------------
 PROFILE_OVERRIDE=""
 INIT=0
 while (($#)); do
   case "$1" in
     --profile) PROFILE_OVERRIDE="${2:-}"; shift 2 ;;
-    --init)    INIT=1; shift ;;
+    --init) INIT=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage; exit 1 ;;
   esac
 done
 
-# ---------------- load profile env (strict) ----------------
-# This file is your strict loader that uses get_profile_name() with no legacy fallback.
-# It also defines dot_env_path and dot_load_env.
-if [[ ! -f "$DOTFILES/scripts/load-env.sh" ]]; then
-  echo "freeze_catalog: missing $DOTFILES/scripts/load-env.sh" >&2
+PROFILE_NAME="${PROFILE_OVERRIDE:-$(get_profile_name)}"
+PROFILE_DIR="$DOTFILES_ROOT/profiles/$PROFILE_NAME"
+SPEC_DIR="$PROFILE_DIR/specs"
+CORE_SPEC_DIR="$DOTFILES_ROOT/profiles/core/specs"
+CORE_CATALOG="$CORE_SPEC_DIR/catalog.lock"
+PROFILE_CATALOG="$SPEC_DIR/catalog.lock"
+APT_FILE="$SPEC_DIR/apt.manual.versions.txt"
+BREW_FILE="$SPEC_DIR/brew.leaves.versions.txt"
+RESOLVED_FILE="$SPEC_DIR/resolved.lock.tsv"
+REPORT_FILE="$SPEC_DIR/resolve-report.tsv"
+
+if [ ! -d "$PROFILE_DIR" ] && [ "$INIT" -ne 1 ]; then
+  echo "freeze_catalog: profile '$PROFILE_NAME' does not exist; use --init to create it." >&2
   exit 1
 fi
-# shellcheck source=/dev/null
-. "$DOTFILES/scripts/load-env.sh"
 
-# Detect which base the loader is using by asking for ENV path.
-_profile_env_path() {
-  # If PROFILE_OVERRIDE is set, we pass it through; dot_load_env will validate existence.
-  if dot_load_env "${PROFILE_OVERRIDE:-}"; then
-    dot_env_path "$DOTFILES_PROFILE"
-  else
-    return 1
-  fi
-}
-
-# Try to load; if it fails and --init was requested, create skeleton, then retry.
-if ! ENV_PATH="$(_profile_env_path)"; then
-  if (( INIT )); then
-    # Figure out the intended name (explicit override > env > computed)
-    if [[ -n "$PROFILE_OVERRIDE" ]]; then
-      PNAME="$PROFILE_OVERRIDE"
-    elif declare -F get_profile_name >/dev/null 2>&1; then
-      PNAME="$(get_profile_name)"
-    else
-      echo "freeze_catalog: get_profile_name() not available; cannot --init" >&2
-      exit 1
-    fi
-
-    # Choose the same base the loader prefers: profiles/ then profile/
-    PROFILES_BASE="$DOTFILES/profiles"
-    [[ -d "$PROFILES_BASE" ]] || PROFILES_BASE="$DOTFILES/profile"
-    [[ -d "$PROFILES_BASE" ]] || { echo "freeze_catalog: profiles base not found" >&2; exit 1; }
-
-    mkdir -p "$PROFILES_BASE/$PNAME"/{specs,startup.d}
-    : > "$PROFILES_BASE/$PNAME/ENV"
-    echo "Initialized profile: $PROFILES_BASE/$PNAME"
-
-    # Retry load
-    ENV_PATH="$(_profile_env_path)" || { echo "freeze_catalog: failed to load profile after --init" >&2; exit 1; }
-  else
-    echo "freeze_catalog: could not load profile; run with --init to create one." >&2
-    exit 1
-  fi
+mkdir -p "$CORE_SPEC_DIR"
+if [ ! -f "$CORE_CATALOG" ]; then
+  catalog_default_scaffold > "$CORE_CATALOG"
 fi
 
-PROFILE_DIR="$(dirname "$ENV_PATH")"     # .../<profile>
-SPEC_DIR="$PROFILE_DIR/specs"
+if [ ! -d "$PROFILE_DIR" ]; then
+  mkdir -p "$SPEC_DIR"
+  : > "$PROFILE_DIR/ENV"
+fi
+
 mkdir -p "$SPEC_DIR"
-
-echo "== Freeze specs to: $SPEC_DIR =="
-echo "   Profile: $DOTFILES_PROFILE"
-echo "   ENV:     $ENV_PATH"
-
-# ---------------- APT packages (manual + versions) ----------------
-if command -v apt >/dev/null 2>&1; then
-  echo "-> Capturing APT manual packages + versions"
-  apt-mark showmanual \
-    | sort \
-    | while read -r p; do
-        [[ -z "$p" ]] && continue
-        v="$(dpkg-query -W -f='${Version}' "$p" 2>/dev/null || true)"
-        if [[ -n "$v" ]]; then printf "%s %s\n" "$p" "$v"; else printf "%s\n" "$p"; fi
-      done \
-    > "$SPEC_DIR/apt.manual.versions.txt"
-  echo "   Wrote $SPEC_DIR/apt.manual.versions.txt"
-else
-  echo "-> APT not found; skipping apt.manual.versions.txt"
+if [ ! -f "$PROFILE_CATALOG" ]; then
+  catalog_default_scaffold > "$PROFILE_CATALOG"
 fi
-
-# ---------------- Homebrew (leaves + versions) ----------------
-if command -v brew >/dev/null 2>&1; then
-  echo "-> Capturing Homebrew leaves + versions"
-  if command -v jq >/dev/null 2>&1; then
-    : > "$SPEC_DIR/brew.leaves.versions.txt"
-    while read -r f; do
-      [[ -z "$f" ]] && continue
-      ver="$(brew info --json=v2 "$f" | jq -r '.formulae[0].installed[-1].version // ""')"
-      printf "%s %s\n" "$f" "$ver" >> "$SPEC_DIR/brew.leaves.versions.txt"
-    done < <(brew leaves)
-  else
-    tmp_leaves="$(mktemp)"; trap 'rm -f "$tmp_leaves"' EXIT
-    brew leaves > "$tmp_leaves"
-    : > "$SPEC_DIR/brew.leaves.versions.txt"
-    while read -r f ver _; do
-      [[ -z "$f" ]] && continue
-      if grep -qx "$f" "$tmp_leaves"; then
-        printf "%s %s\n" "$f" "${ver:-}" >> "$SPEC_DIR/brew.leaves.versions.txt"
-      fi
-    done < <(brew list --versions)
-    while read -r f; do
-      grep -q "^$f " "$SPEC_DIR/brew.leaves.versions.txt" || printf "%s\n" "$f" >> "$SPEC_DIR/brew.leaves.versions.txt"
-    done < "$tmp_leaves"
-  fi
-  echo "   Wrote $SPEC_DIR/brew.leaves.versions.txt"
-else
-  echo "-> Homebrew not found; skipping brew.leaves.versions.txt"
-fi
-
-# ---------------- Tarball scaffold (optional) ----------------
-if [[ ! -f "$SPEC_DIR/tarball.specs" ]]; then
+if [ ! -f "$SPEC_DIR/tarball.specs" ]; then
   cat > "$SPEC_DIR/tarball.specs" <<'EOF'
 # tarball.specs (optional)
 # One per line: name[=version] [url=...]
@@ -147,8 +89,65 @@ if [[ ! -f "$SPEC_DIR/tarball.specs" ]]; then
 # ripgrep=14.1.0 url=https://github.com/BurntSushi/ripgrep/releases/download/14.1.0/ripgrep-14.1.0-aarch64-unknown-linux-musl.tar.gz
 # hugo=0.133.1  url=https://github.com/gohugoio/hugo/releases/download/v0.133.1/hugo_extended_0.133.1_Linux-ARM64.tar.gz
 EOF
-  echo "-> Created $SPEC_DIR/tarball.specs (scaffold)"
 fi
 
-echo "Done."
+export DOTFILES_PROFILE="$PROFILE_NAME"
+export CATALOG_SKIP_BREW=0
 
+echo "== Freeze specs to: $SPEC_DIR =="
+echo "   Profile: $DOTFILES_PROFILE"
+
+if command -v apt >/dev/null 2>&1; then
+  echo "-> Capturing APT manual packages + versions"
+  apt-mark showmanual \
+    | sort \
+    | while read -r pkg; do
+        [ -n "$pkg" ] || continue
+        version="$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null || true)"
+        if [ -n "$version" ]; then
+          printf "%s %s\n" "$pkg" "$version"
+        else
+          printf "%s\n" "$pkg"
+        fi
+      done > "$APT_FILE"
+  echo "   Wrote $APT_FILE"
+else
+  echo "-> APT not found; skipping apt.manual.versions.txt"
+fi
+
+if command -v brew >/dev/null 2>&1; then
+  echo "-> Capturing Homebrew leaves + versions"
+  tmp_leaves="$(mktemp)"
+  trap 'rm -f "$tmp_leaves"' EXIT
+  if HOMEBREW_NO_AUTO_UPDATE=1 brew leaves > "$tmp_leaves" 2>/dev/null; then
+    : > "$BREW_FILE"
+    while read -r formula version _; do
+      [ -n "$formula" ] || continue
+      if grep -qx "$formula" "$tmp_leaves"; then
+        printf "%s %s\n" "$formula" "${version:-}" >> "$BREW_FILE"
+      fi
+    done < <(HOMEBREW_NO_AUTO_UPDATE=1 brew list --versions 2>/dev/null)
+    while read -r formula; do
+      grep -q "^$formula " "$BREW_FILE" || printf "%s\n" "$formula" >> "$BREW_FILE"
+    done < "$tmp_leaves"
+    echo "   Wrote $BREW_FILE"
+  else
+    export CATALOG_SKIP_BREW=1
+    echo "-> Homebrew available but not readable without side effects; skipping brew.leaves.versions.txt"
+  fi
+else
+  export CATALOG_SKIP_BREW=1
+  echo "-> Homebrew not found; skipping brew.leaves.versions.txt"
+fi
+
+catalog_write_audit_outputs \
+  "$CORE_CATALOG" \
+  "$PROFILE_CATALOG" \
+  "$APT_FILE" \
+  "$BREW_FILE" \
+  "$RESOLVED_FILE" \
+  "$REPORT_FILE"
+
+echo "-> Wrote $RESOLVED_FILE"
+echo "-> Wrote $REPORT_FILE"
+echo "Done."

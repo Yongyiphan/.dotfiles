@@ -61,7 +61,6 @@ dot_env_path() {
 dot_load_env() {
   local name env_file
   name="$(_dot_profile_name "${1:-}")" || return 1
-	echo $name
   env_file="$PROFILES_BASE/$name/ENV"
 
   if [ ! -f "$env_file" ]; then
@@ -75,7 +74,6 @@ dot_load_env() {
   . "$env_file"
   set +a
 
-	echo Loaded: $env_file
   export DOTFILES_PROFILE="$name"
 }
 
@@ -88,4 +86,3 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     exit 1
   fi
 fi
-

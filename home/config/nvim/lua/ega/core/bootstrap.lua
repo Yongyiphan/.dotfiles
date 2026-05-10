@@ -2,68 +2,54 @@
 local uv = vim.uv or vim.loop
 local M = {}
 
-local function current_profile()
-	local host = (uv.os_gethostname and uv.os_gethostname()) or uv.os_uname().nodename
-	return vim.env.DOTFILES_PROFILE or host or "default"
+local function profile_dir(profile)
+	return vim.fn.stdpath("config") .. "/lua/profiles/" .. profile
 end
 
-function M.init(opts)
-	opts          = opts or {}
-	local PROFILE = current_profile()
-	local CFG     = vim.fn.stdpath("config")          -- ~/.config/nvim
-	local PDIR    = CFG .. "/lua/profiles/" .. PROFILE -- fixed slash
-	
-	if vim.fn.isdirectory(PDIR) == 0 then
-		print("Creating PDIR: ", PDIR)
-		vim.fn.mkdir(PDIR, "p")
+local function profile_exists(profile)
+	return type(profile) == "string" and vim.fn.isdirectory(profile_dir(profile)) == 1
+end
+
+local function current_profile()
+	local requested = vim.env.DOTFILES_PROFILE
+	if profile_exists(requested) then
+		return requested
 	end
-	
-	-- export for later (lazy lockfile, etc.)
-	vim.g.NVIM_PROFILE = PROFILE
-	vim.g.NVIM_LOCKFILE = PDIR .. "/lazy-lock-" .. PROFILE .. ".json"
-	
-	-- optional scaffolding
-	if opts.scaffold then
-		for _, sub in ipairs({ "lsp", "dap", "dap/plugins", "dap/settings" }) do
-			local d = PDIR .. "/" .. sub
-			if vim.fn.isdirectory(d) == 0 then
-				vim.fn.mkdir(d, "p")
-			end
-			local i = PDIR .. "/" .. sub .. "/init.lua"
-			if vim.fn.filereadable(i) == 0 then
-				vim.fn.writefile({}, i)
-			end
-		end
+
+	local host = (uv.os_gethostname and uv.os_gethostname()) or uv.os_uname().nodename
+	if profile_exists(host) then
+		return host
 	end
-	
-	-- 1) helper: write content only if file is missing or empty
-	local function write_if_missing_or_empty(path, content)
-		local exists = vim.fn.filereadable(path) == 1
-		local empty = true
-		if exists then
-			local ok, lines = pcall(vim.fn.readfile, path)
-			empty = (not ok) or (#lines == 0)
-		end
-		if (not exists) or empty then
-			vim.fn.writefile(vim.split(content, "\n", { plain = true }), path)
-		end
+
+	if profile_exists("default") then
+		local missing = requested or host or "unknown"
+		vim.schedule(function()
+			vim.notify(
+				string.format("Using default Neovim profile because '%s' does not exist.", missing),
+				vim.log.levels.WARN
+			)
+		end)
+		return "default"
 	end
-	
-	-- 2) stubs for settings init.lua (so require() returns a table, not `true`)
-	local SETTINGS_STUB = table.concat({
-		"local M = {}",
-		"local names = {}",
-		"M.names = names",
-		"return M",
-		"",
-	}, "\n")
-	
-	-- only these two get content; others can stay blank
-	write_if_missing_or_empty(PDIR .. "/dap/settings/init.lua", SETTINGS_STUB)
-	
-	_G.profile = PROFILE
-	_G.rprofile = "profiles." .. PROFILE
-	return { profile = PROFILE, pdir = PDIR, locks = PDIR }
+
+	error("No Neovim profile directory found for requested profile, host, or default.")
+end
+
+function M.init()
+	local profile = current_profile()
+	local cfg = vim.fn.stdpath("config")
+
+	vim.g.NVIM_PROFILE = profile
+	vim.g.NVIM_LOCKFILE = cfg .. "/locks/lazy-lock-" .. profile .. ".json"
+
+	_G.profile = profile
+	_G.rprofile = "profiles." .. profile
+
+	return {
+		profile = profile,
+		pdir = profile_dir(profile),
+		lockfile = vim.g.NVIM_LOCKFILE,
+	}
 end
 
 return M

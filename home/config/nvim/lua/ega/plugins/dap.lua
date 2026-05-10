@@ -15,7 +15,7 @@ local M = {
 		dependencies = {
 			"mfussenegger/nvim-dap",
 			"nvim-telescope/telescope.nvim",
-			"williamboman/mason.nvim",
+			"mason-org/mason.nvim",
 		},
 	},
 	{ "theHamsta/nvim-dap-virtual-text" },

@@ -1,25 +1,26 @@
-local Languages = _G.call("ega.plugins.lspLang")
 local P = {
 	-- Mason core installer
 	{
-		"williamboman/mason.nvim",
-		cmd    = { "Mason", "MasonInstall", "MasonUpdate" },
-		build  = ":MasonUpdate",
-		event = "VeryLazy",
-		config = function()
-			local ok, mason = pcall(require, "mason")
-			if ok then mason.setup({}) end
-		end,
+		"mason-org/mason.nvim",
+		build = ":MasonUpdate",
+		lazy = false,
+		opts = {},
 	},
 	-- Mason tool installer (servers + CLI tools)
 	{
 		"WhoIsSethDaniel/mason-tool-installer.nvim",
-		after = "mason.nvim",
+		dependencies = { "mason-org/mason.nvim" },
 	},
 	-- Bridge Mason → LSPConfig
 	{
-		"williamboman/mason-lspconfig.nvim",
-		after = { "mason.nvim", "mason-tool-installer.nvim" },
+		"mason-org/mason-lspconfig.nvim",
+		dependencies = {
+			"mason-org/mason.nvim",
+			"WhoIsSethDaniel/mason-tool-installer.nvim",
+		},
+		opts = {
+			automatic_enable = false,
+		},
 	},
 	-- Core LSP client
 	{
@@ -86,11 +87,11 @@ local P = {
 			require("copilot_cmp").setup()
 		end 
 	},
-	-- none-ls for formatting & diagnostics
+	-- none-ls repo for formatting & diagnostics.
+	-- Runtime API remains `require("null-ls")`.
 	{
 		"nvimtools/none-ls.nvim",
-		after        = "mason-lspconfig.nvim",
-		dependencies = { "nvim-lua/plenary.nvim" },
+		dependencies = { "nvim-lua/plenary.nvim", "mason-org/mason-lspconfig.nvim" },
 		event = {"BufReadPre", "BufNewFile", "BufReadPost"}
 	},
 	-- Avante deps (recommended by Avante)
@@ -142,7 +143,6 @@ local P = {
 		},
 	},
 
-	Languages
 }
 
 return P

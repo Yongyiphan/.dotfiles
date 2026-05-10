@@ -1,0 +1,5 @@
+# Derived bootstrap audit outputs.
+# Keep the desired manifests and raw package snapshots tracked; ignore the
+# normalized/reporting views because they are regenerated from those sources.
+profiles/*/specs/resolved.lock.tsv
+profiles/*/specs/resolve-report.tsv

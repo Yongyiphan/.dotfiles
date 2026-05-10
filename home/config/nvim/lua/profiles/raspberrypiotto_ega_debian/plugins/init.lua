@@ -1,14 +1,4 @@
 local M = {
-	--Python debugger
-	{
-		"mfussenegger/nvim-dap-python",
-		ft = "python",
-		dependencies = {
-			"mfussenegger/nvim-dap",
-			"rcarriga/nvim-dap-ui",
-		},
-	},
-	-- For lazy.nvim
 	{
 		'MeanderingProgrammer/markdown.nvim',
 		name = 'render-markdown',

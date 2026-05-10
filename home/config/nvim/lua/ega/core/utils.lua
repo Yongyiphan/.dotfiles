@@ -11,7 +11,6 @@ function _G.call(plugin)
 	local line       = info.currentline
 	
 	if not ok then
-		_G.Setup_Status = false
 		-- Print a clear error with location
 		vim.notify(
 			string.format(
