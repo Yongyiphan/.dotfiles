@@ -341,6 +341,74 @@ catalog_write_audit_outputs() {
   return 0
 }
 
+catalog_write_baseline_report() {
+  local baseline_apt="$1" observed_apt="$2" baseline_brew="$3" observed_brew="$4" out_file="$5"
+  local manager baseline_file observed_file package version
+  declare -A baseline_map=()
+  declare -A observed_map=()
+  declare -A keys=()
+
+  _catalog_load_snapshot() {
+    local file="$1" prefix="$2"
+    [ -f "$file" ] || return 0
+    while read -r package version _; do
+      [ -n "${package:-}" ] || continue
+      version="${version:--}"
+      if [ "$prefix" = "baseline" ]; then
+        baseline_map["$package"]="$version"
+      else
+        observed_map["$package"]="$version"
+      fi
+      keys["$package"]=1
+    done < "$file"
+  }
+
+  {
+    printf 'manager\tpackage\tbaseline_version\tobserved_version\tstatus\n'
+    for manager in apt brew; do
+      baseline_map=()
+      observed_map=()
+      keys=()
+      case "$manager" in
+        apt)
+          baseline_file="$baseline_apt"
+          observed_file="$observed_apt"
+          ;;
+        brew)
+          baseline_file="$baseline_brew"
+          observed_file="$observed_brew"
+          ;;
+      esac
+
+      _catalog_load_snapshot "$baseline_file" baseline
+      _catalog_load_snapshot "$observed_file" observed
+
+      for package in $(printf '%s\n' "${!keys[@]}" | sort); do
+        local baseline_version="${baseline_map[$package]:-}"
+        local observed_version="${observed_map[$package]:-}"
+        local status=""
+
+        if [ -z "$baseline_version" ] && [ -n "$observed_version" ]; then
+          status="added"
+        elif [ -n "$baseline_version" ] && [ -z "$observed_version" ]; then
+          status="removed"
+        elif [ "$baseline_version" != "$observed_version" ]; then
+          status="changed"
+        else
+          continue
+        fi
+
+        printf '%s\t%s\t%s\t%s\t%s\n' \
+          "$manager" \
+          "$package" \
+          "${baseline_version:--}" \
+          "${observed_version:--}" \
+          "$status"
+      done
+    done
+  } > "$out_file"
+}
+
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   core="${1:-}"
   profile="${2:-}"

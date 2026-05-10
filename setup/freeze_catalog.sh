@@ -57,10 +57,14 @@ SPEC_DIR="$PROFILE_DIR/specs"
 CORE_SPEC_DIR="$DOTFILES_ROOT/profiles/core/specs"
 CORE_CATALOG="$CORE_SPEC_DIR/catalog.lock"
 PROFILE_CATALOG="$SPEC_DIR/catalog.lock"
-APT_FILE="$SPEC_DIR/apt.manual.versions.txt"
-BREW_FILE="$SPEC_DIR/brew.leaves.versions.txt"
-RESOLVED_FILE="$SPEC_DIR/resolved.lock.tsv"
-REPORT_FILE="$SPEC_DIR/resolve-report.tsv"
+BASELINE_APT_FILE="$SPEC_DIR/apt.manual.versions.txt"
+BASELINE_BREW_FILE="$SPEC_DIR/brew.leaves.versions.txt"
+OBSERVED_DIR="$SPEC_DIR/.observed"
+OBSERVED_APT_FILE="$OBSERVED_DIR/apt.manual.versions.txt"
+OBSERVED_BREW_FILE="$OBSERVED_DIR/brew.leaves.versions.txt"
+RESOLVED_FILE="$OBSERVED_DIR/resolved.lock.tsv"
+REPORT_FILE="$OBSERVED_DIR/resolve-report.tsv"
+BASELINE_REPORT_FILE="$OBSERVED_DIR/baseline-report.tsv"
 
 if [ ! -d "$PROFILE_DIR" ] && [ "$INIT" -ne 1 ]; then
   echo "freeze_catalog: profile '$PROFILE_NAME' does not exist; use --init to create it." >&2
@@ -78,6 +82,7 @@ if [ ! -d "$PROFILE_DIR" ]; then
 fi
 
 mkdir -p "$SPEC_DIR"
+mkdir -p "$OBSERVED_DIR"
 if [ ! -f "$PROFILE_CATALOG" ]; then
   catalog_default_scaffold > "$PROFILE_CATALOG"
 fi
@@ -95,6 +100,7 @@ export DOTFILES_PROFILE="$PROFILE_NAME"
 export CATALOG_SKIP_BREW=0
 
 echo "== Freeze specs to: $SPEC_DIR =="
+echo "   Observed: $OBSERVED_DIR"
 echo "   Profile: $DOTFILES_PROFILE"
 
 if command -v apt >/dev/null 2>&1; then
@@ -109,9 +115,10 @@ if command -v apt >/dev/null 2>&1; then
         else
           printf "%s\n" "$pkg"
         fi
-      done > "$APT_FILE"
-  echo "   Wrote $APT_FILE"
+      done > "$OBSERVED_APT_FILE"
+  echo "   Wrote $OBSERVED_APT_FILE"
 else
+  rm -f "$OBSERVED_APT_FILE"
   echo "-> APT not found; skipping apt.manual.versions.txt"
 fi
 
@@ -120,34 +127,44 @@ if command -v brew >/dev/null 2>&1; then
   tmp_leaves="$(mktemp)"
   trap 'rm -f "$tmp_leaves"' EXIT
   if HOMEBREW_NO_AUTO_UPDATE=1 brew leaves > "$tmp_leaves" 2>/dev/null; then
-    : > "$BREW_FILE"
+    : > "$OBSERVED_BREW_FILE"
     while read -r formula version _; do
       [ -n "$formula" ] || continue
       if grep -qx "$formula" "$tmp_leaves"; then
-        printf "%s %s\n" "$formula" "${version:-}" >> "$BREW_FILE"
+        printf "%s %s\n" "$formula" "${version:-}" >> "$OBSERVED_BREW_FILE"
       fi
     done < <(HOMEBREW_NO_AUTO_UPDATE=1 brew list --versions 2>/dev/null)
     while read -r formula; do
-      grep -q "^$formula " "$BREW_FILE" || printf "%s\n" "$formula" >> "$BREW_FILE"
+      grep -q "^$formula " "$OBSERVED_BREW_FILE" || printf "%s\n" "$formula" >> "$OBSERVED_BREW_FILE"
     done < "$tmp_leaves"
-    echo "   Wrote $BREW_FILE"
+    echo "   Wrote $OBSERVED_BREW_FILE"
   else
     export CATALOG_SKIP_BREW=1
+    rm -f "$OBSERVED_BREW_FILE"
     echo "-> Homebrew available but not readable without side effects; skipping brew.leaves.versions.txt"
   fi
 else
   export CATALOG_SKIP_BREW=1
+  rm -f "$OBSERVED_BREW_FILE"
   echo "-> Homebrew not found; skipping brew.leaves.versions.txt"
 fi
 
 catalog_write_audit_outputs \
   "$CORE_CATALOG" \
   "$PROFILE_CATALOG" \
-  "$APT_FILE" \
-  "$BREW_FILE" \
+  "$OBSERVED_APT_FILE" \
+  "$OBSERVED_BREW_FILE" \
   "$RESOLVED_FILE" \
   "$REPORT_FILE"
 
+catalog_write_baseline_report \
+  "$BASELINE_APT_FILE" \
+  "$OBSERVED_APT_FILE" \
+  "$BASELINE_BREW_FILE" \
+  "$OBSERVED_BREW_FILE" \
+  "$BASELINE_REPORT_FILE"
+
 echo "-> Wrote $RESOLVED_FILE"
 echo "-> Wrote $REPORT_FILE"
+echo "-> Wrote $BASELINE_REPORT_FILE"
 echo "Done."
