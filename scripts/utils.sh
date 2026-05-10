@@ -69,9 +69,8 @@ goto() {
     canon="${canon%/}"
     [[ -z "${seen[$canon]:-}" ]] && { roots+=("$canon"); seen[$canon]=1; }
   done
-  # prune sub-roots (remove any root that is a subdir of another root)
+  # prune sub-roots while preserving user-specified order from GOTO_ROOTS
   if ((${#roots[@]} > 1)); then
-    IFS=$'\n' roots=($(printf '%s\n' "${roots[@]}" | awk '{print length, $0}' | sort -n | cut -d" " -f2-))
     declare -a pruned=()
     for r in "${roots[@]}"; do
       local is_sub=0
@@ -171,5 +170,4 @@ command -v link_tool >/dev/null 2>&1 || link_tool(){
   ln -snf "$src" "$dst"
   info "linked $(basename "$src") -> $dst"
 }
-
 

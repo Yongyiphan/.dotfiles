@@ -4,3 +4,4 @@
 profiles/*/specs/.observed/
 profiles/*/specs/resolved.lock.tsv
 profiles/*/specs/resolve-report.tsv
+.nvimlog
