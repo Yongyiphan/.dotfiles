@@ -39,8 +39,8 @@ return {
 		none_ls_sources = function(builtins)
 			return {
 				builtins.formatting.stylua.with({
-					condition = function(utils)
-						return utils.executable("stylua") == 1
+					condition = function()
+						return vim.fn.executable("stylua") == 1
 					end,
 				}),
 			}

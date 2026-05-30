@@ -40,12 +40,27 @@ local function start_lsp(name, spec, caps)
 					return
 				end
 			end
+
+			local ctx = {
+				bufnr = args.buf,
+				bufname = bufname,
+				root_dir = root_dir,
+			}
+
+			if type(spec.condition) == "function" and not spec.condition(ctx) then
+				return
+			end
+
+			local settings = spec.settings
+			if type(settings) == "function" then
+				settings = settings(ctx)
+			end
 			
 			vim.lsp.start({
 				name = name,
 				cmd = cmd,
 				root_dir = root_dir,
-				settings = spec.settings,
+				settings = settings,
 				capabilities = caps,
 			}, { bufnr = args.buf })
 		end,
