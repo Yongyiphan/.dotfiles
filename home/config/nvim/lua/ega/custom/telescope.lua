@@ -4,6 +4,10 @@ if not telescope then
 end
 
 local builtin = require("telescope.builtin")
+local fb_actions = require("telescope._extensions.file_browser.actions")
+local fb_lsp = require("telescope._extensions.file_browser.lsp")
+local action_state = require("telescope.actions.state")
+local lsp_utils = require("ega.custom.lsp.utils")
 local Utils = require("ega.core.utils")
 local M = {}
 local show_hidden_files = false
@@ -115,22 +119,89 @@ M.find_files_in_parent_directory = function(prompt_bufnr)
 	require("telescope.builtin").find_files(opts)
 end
 
--- File explorer: rename a selected file
-M.rename_selected_file = function(prompt_bufnr)
-	local action_state = require("telescope.actions.state")
-	local current_picker = action_state.get_current_picker(prompt_bufnr)
+local function file_browser_base_dir(prompt_bufnr)
+	local picker = action_state.get_current_picker(prompt_bufnr)
+	local finder = picker.finder
 	local entry = action_state.get_selected_entry()
-	
-	if entry ~= nil then
-		local old_name = entry.path
-		
-		vim.ui.input({ prompt = 'Rename to: ', default = old_name }, function(new_name)
-			if new_name and new_name ~= "" and new_name ~= old_name then
-				vim.fn.rename(old_name, new_name)
-				current_picker:refresh()
-			end
-		end)
+
+	if finder.files then
+		return finder.path, picker, finder
 	end
+	if entry and entry.value then
+		return entry.value, picker, finder
+	end
+	return finder.cwd or vim.loop.cwd(), picker, finder
+end
+
+local function resolve_file_browser_input(input, base_dir)
+	if not input or input == "" then
+		return nil
+	end
+	if input:sub(1, 1) == "/" then
+		return vim.fn.fnamemodify(input, ":p")
+	end
+	return vim.fn.fnamemodify(base_dir .. "/" .. input, ":p")
+end
+
+M.create_file_browser_entry = function(prompt_bufnr)
+	local base_dir, picker, finder = file_browser_base_dir(prompt_bufnr)
+	local default_path = base_dir .. "/"
+
+	vim.ui.input({ prompt = "Create: ", default = default_path, completion = "file" }, function(input)
+		local path = resolve_file_browser_input(input, base_dir)
+		if not path then
+			return
+		end
+		if vim.fn.filereadable(path) == 1 or vim.fn.isdirectory(path) == 1 then
+			vim.notify("Selection already exists: " .. path, vim.log.levels.WARN)
+			return
+		end
+
+		fb_lsp.will_create_files({ path })
+		if path:sub(-1) == "/" then
+			vim.fn.mkdir(path, "p")
+		else
+			vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
+			vim.fn.writefile({}, path)
+		end
+		fb_lsp.did_create_files({ path })
+
+		lsp_utils.notify_file_operation({
+			{ uri = vim.uri_from_fname(path), type = 1 },
+		})
+		picker:refresh(finder, { reset_prompt = true, multi = picker._multi })
+	end)
+end
+
+M.rename_file_browser_entry = function(prompt_bufnr)
+	local picker = action_state.get_current_picker(prompt_bufnr)
+	local finder = picker.finder
+	local entry = action_state.get_selected_entry()
+	if not entry or not entry.path then
+		return
+	end
+
+	local old_path = vim.fn.fnamemodify(entry.path, ":p")
+	vim.ui.input({ prompt = "Rename: ", default = old_path, completion = "file" }, function(input)
+		local new_path = resolve_file_browser_input(input, vim.fn.fnamemodify(old_path, ":h"))
+		if not new_path or new_path == old_path then
+			return
+		end
+
+		fb_lsp.will_rename_files({ [old_path] = new_path })
+		local ok = vim.fn.rename(old_path, new_path) == 0
+		if not ok then
+			vim.notify("Rename failed: " .. old_path, vim.log.levels.ERROR)
+			return
+		end
+		fb_lsp.did_rename_files({ [old_path] = new_path })
+
+		lsp_utils.notify_file_operation({
+			{ uri = vim.uri_from_fname(old_path), type = 3 },
+			{ uri = vim.uri_from_fname(new_path), type = 1 },
+		})
+		picker:refresh(finder, { reset_prompt = true, multi = picker._multi })
+	end)
 end
 
 -- File explorer: show all files, including hidden ones
@@ -200,9 +271,12 @@ telescope.setup({
 			follow = true,
 			mappings = {
 				["n"] = {
-					["]"] = require("telescope._extensions.file_browser.actions").toggle_respect_gitignore,
+					["]"] = fb_actions.toggle_respect_gitignore,
+					["c"] = M.create_file_browser_entry,
+					["d"] = fb_actions.remove,
+					["m"] = fb_actions.move,
+					["r"] = M.rename_file_browser_entry,
 					["z"] = M.unzip_selected_file,
-					["r"] = M.rename_selected_file,
 					["h"] = M.show_all_files_in_explorer,
 				},
 			},

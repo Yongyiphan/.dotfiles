@@ -155,6 +155,15 @@ return {
 		format_on_save = {
 			enabled = false,
 		},
+		file_operations = {
+			on_change = function(ctx)
+				for _, client in ipairs(vim.lsp.get_clients({ name = "pyright" })) do
+					client.notify("workspace/didChangeWatchedFiles", {
+						changes = ctx.changes,
+					})
+				end
+			end,
+		},
 		none_ls_sources = function(builtins)
 			local isort_args = { "--profile", "black" }
 
