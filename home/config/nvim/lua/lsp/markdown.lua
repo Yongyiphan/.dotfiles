@@ -49,7 +49,23 @@ S.hooks.none_ls_sources = function(builtins)
 
   local fmt = builtins and builtins.formatting or nil
   if fmt and fmt.prettier then
+    -- Try to find local node_modules/.bin/prettier
+    local function find_node_modules_bin()
+      local dir = vim.fn.expand('%:p:h')
+      while dir and dir ~= '/' do
+        local bin_path = dir .. '/node_modules/.bin/prettier'
+        if vim.fn.executable(bin_path) == 1 then
+          return dir .. '/node_modules/.bin'
+        end
+        local parent = vim.fn.fnamemodify(dir, ':h')
+        if parent == dir then break end
+        dir = parent
+      end
+      return nil
+    end
+    local local_bin = find_node_modules_bin()
     table.insert(sources, fmt.prettier.with({
+      prefer_local = local_bin,
       extra_args = {
         "--print-width",
         tostring(S.format_on_save.vars.print_width or 100),

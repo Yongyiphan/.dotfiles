@@ -8,5 +8,7 @@ M.languages = vim.list_extend(
 	}
 )
 
+M.enable_avante = false
+
 
 return M

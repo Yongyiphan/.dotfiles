@@ -31,8 +31,13 @@ function M.restart_attached(name)
 	)
 end
 
--- Convenience: pick a name from clients attached to the current buffer.
+-- Use Telescope to pick an LSP name to restart
 function M.restart_by_name()
+	local ok, telescope = pcall(require, 'telescope')
+	if not ok then
+		vim.notify('Telescope not available', vim.log.levels.ERROR)
+		return
+	end
 	local buf = vim.api.nvim_get_current_buf()
 	local names, seen = {}, {}
 	for _, c in ipairs(vim.lsp.get_clients({ bufnr = buf })) do
@@ -42,18 +47,38 @@ function M.restart_by_name()
 		end
 	end
 	table.sort(names)
-	
-	local prompt = "LSP name to restart"
-	if #names > 0 then prompt = prompt .. " (attached: " .. table.concat(names, ", ") .. ")" end
-	prompt = prompt .. ": "
-	
-	vim.ui.input({ prompt = prompt }, function(input)
-		if not input or input == "" then
-			vim.notify("No LSP name provided", vim.log.levels.WARN)
-			return
-		end
-		M.restart_attached(input)
-	end)
+	if #names == 0 then
+		vim.notify('No LSP clients attached to this buffer', vim.log.levels.WARN)
+		return
+	end
+	telescope.pickers = telescope.pickers or require('telescope.pickers')
+	telescope.finders = telescope.finders or require('telescope.finders')
+	telescope.sorters = telescope.sorters or require('telescope.sorters')
+	local pickers, finders, sorters = telescope.pickers, telescope.finders, telescope.sorters
+	pickers.new({}, {
+		prompt_title = 'Select LSP to Restart',
+		finder = finders.new_table({ results = names }),
+		sorter = sorters.get_generic_fuzzy_sorter(),
+		attach_mappings = function(_, map)
+			local actions = require('telescope.actions')
+			local action_state = require('telescope.actions.state')
+			map('i', '<CR>', function(prompt_bufnr)
+				actions.close(prompt_bufnr)
+				local selection = action_state.get_selected_entry()
+				if selection and selection[1] then
+					M.restart_attached(selection[1])
+				end
+			end)
+			map('n', '<CR>', function(prompt_bufnr)
+				actions.close(prompt_bufnr)
+				local selection = action_state.get_selected_entry()
+				if selection and selection[1] then
+					M.restart_attached(selection[1])
+				end
+			end)
+			return true
+		end,
+	}):find()
 end
 
 return M

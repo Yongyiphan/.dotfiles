@@ -6,4 +6,6 @@ function M.setup()
 end
 
 M.setup()
+local utils = require("ega.custom.lsp.utils")
+M.utils = utils
 return M

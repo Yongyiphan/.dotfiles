@@ -1,4 +1,5 @@
 local Languages = _G.call("ega.plugins.lspLang")
+local profile_lsp = _G.call(_G.rprofile .. ".lsp") or {}
 local P = {
 	-- Mason core installer
 	{
@@ -103,44 +104,44 @@ local P = {
 		lazy = true,
 	},
 
-	-- Avante (codebase/chat sidebar)
-	{
-		"yetone/avante.nvim",
-		event = "VeryLazy",
-		version = false, -- Avante recommends never setting "*"
-		build = vim.fn.has("win32") ~= 0
-				and "powershell -ExecutionPolicy Bypass -File Build.ps1 -BuildFromSource false"
-				or "make",
-		dependencies = {
-			"nvim-lua/plenary.nvim",
-			"MunifTanjim/nui.nvim",
-			"nvim-tree/nvim-web-devicons",
-			"hrsh7th/nvim-cmp",
-			"zbirenbaum/copilot.lua", -- provider='copilot'
-			-- optional pickers (install only if you use them)
-			-- "nvim-telescope/telescope.nvim",
-			-- "ibhagwan/fzf-lua",
-			-- "nvim-mini/mini.pick",
-			-- optional input UI
-			-- "stevearc/dressing.nvim",
-			-- "folke/snacks.nvim",
-		},
-		opts = {
-			instructions_file = "avante.md",
-			provider = "copilot",
+	       -- Avante (codebase/chat sidebar)
+	       (profile_lsp.enable_avante == true) and {
+		       "yetone/avante.nvim",
+		       event = "VeryLazy",
+		       version = false, -- Avante recommends never setting "*"
+		       build = vim.fn.has("win32") ~= 0
+				       and "powershell -ExecutionPolicy Bypass -File Build.ps1 -BuildFromSource false"
+				       or "make",
+		       dependencies = {
+			       "nvim-lua/plenary.nvim",
+			       "MunifTanjim/nui.nvim",
+			       "nvim-tree/nvim-web-devicons",
+			       "hrsh7th/nvim-cmp",
+			       "zbirenbaum/copilot.lua", -- provider='copilot'
+			       -- optional pickers (install only if you use them)
+			       -- "nvim-telescope/telescope.nvim",
+			       -- "ibhagwan/fzf-lua",
+			       -- "nvim-mini/mini.pick",
+			       -- optional input UI
+			       -- "stevearc/dressing.nvim",
+			       -- "folke/snacks.nvim",
+		       },
+		       opts = {
+			       instructions_file = "avante.md",
+			       provider = "copilot",
 
-			-- you said you do not care about inline suggestions
-			behaviour = {
-				auto_suggestions = false,
-			},
-		},
-		keys = {
-			{ "<leader>aa", "<cmd>AvanteAsk<cr>",    desc = "Avante: Ask" },
-			{ "<leader>ac", "<cmd>AvanteChat<cr>",   desc = "Avante: Chat" },
-			{ "<leader>at", "<cmd>AvanteToggle<cr>", desc = "Avante: Toggle sidebar" },
-			{ "<leader>am", "<cmd>AvanteShowRepoMap<cr>", desc = "Avante: Repo map" },
-		},
-	},
+			       -- you said you do not care about inline suggestions
+			       behaviour = {
+				       auto_suggestions = false,
+			       },
+		       },
+		       keys = {
+			       { "<leader>aa", "<cmd>AvanteAsk<cr>",    desc = "Avante: Ask" },
+			       { "<leader>ac", "<cmd>AvanteChat<cr>",   desc = "Avante: Chat" },
+			       { "<leader>at", "<cmd>AvanteToggle<cr>", desc = "Avante: Toggle sidebar" },
+			       { "<leader>am", "<cmd>AvanteShowRepoMap<cr>", desc = "Avante: Repo map" },
+		       },
+	       } or nil,
 
 	Languages
 }
