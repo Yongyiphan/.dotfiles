@@ -1,0 +1,7 @@
+# Derived bootstrap audit outputs and current observed snapshots.
+# Keep the desired manifests and accepted profile baselines tracked; ignore the
+# transient observed state used for audit and baseline review.
+profiles/*/specs/.observed/
+profiles/*/specs/resolved.lock.tsv
+profiles/*/specs/resolve-report.tsv
+.nvimlog

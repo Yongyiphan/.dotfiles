@@ -1,1 +1,3 @@
-# per-profile exports go here
+LOCAL_BIN="$HOME/.local/bin"
+GOTO_ROOTS="$HOME:$HOME/repos:$HOME/MainPP:/opt:/var/www"
+GOTO_IGNORE_FILE="$HOME/.dotfiles/profiles/mc-server_mcadmin_debian/goto.ignore"

@@ -1,120 +1,67 @@
----@type LanguageProfile
-local FullProfile = vim.deepcopy(require("profiles.template.lsp.settings_template"))
-
--- Language-specific plugins (Lazy specs)
-FullProfile.plugins = {
-  {
-    "yioneko/nvim-vtsls",
-    -- opts = { } -- if you ever need to configure it
-  },
+return {
+	meta = {
+		name = "typescript",
+		filetypes = {
+			"typescript",
+			"typescriptreact",
+			"javascript",
+			"javascriptreact",
+		},
+	},
+	lsp = {
+		vtsls = {
+			enabled = true,
+			cmd = { "vtsls", "--stdio" },
+			root_dir_markers = {
+				"tsconfig.json",
+				"jsconfig.json",
+				"package.json",
+				"app.json",
+				".git",
+			},
+			settings = {
+				typescript = {
+					format = {
+						insertSpaceAfterFunctionKeywordForAnonymousFunctions = true,
+					},
+				},
+				javascript = {
+					format = {
+						insertSpaceAfterFunctionKeywordForAnonymousFunctions = true,
+					},
+				},
+			},
+		},
+	},
+	install = {
+		mason = { "vtsls", "prettier" },
+		system = {
+			apt = { "nodejs", "npm" },
+			dnf = { "nodejs", "npm" },
+			pacman = { "nodejs", "npm" },
+			brew = { "node" },
+		},
+		project_local = {
+			tools = { "prettier" },
+			note = "node_modules/.bin tools are preferred when available.",
+		},
+	},
+	editor = {
+		format_on_save = {
+			enabled = true,
+		},
+		none_ls_sources = function(builtins)
+			local formatting = builtins and builtins.formatting or nil
+			if not formatting or not formatting.prettier then
+				return {}
+			end
+			return {
+				formatting.prettier.with({
+					prefer_local = "node_modules/.bin",
+					extra_args = { "--print-width", "100" },
+				}),
+			}
+		end,
+	},
+	plugins = {},
 }
-
-local S = FullProfile.settings
-
--- identity / scope
-S.meta.lang = "typescript"
-S.files.filetypes = {
-  "typescript",
-  "typescriptreact",
-  "javascript",
-  "javascriptreact",
-}
-
--- LSP: vtsls (modern TS/JS/JSX/TSX server)
-S.lsp.vtsls = {
-  enabled = true,
-  cmd = { "vtsls", "--stdio" },
-  root_dir_markers = {
-    "tsconfig.json",
-    "jsconfig.json",
-    "package.json",
-    "app.json",
-    ".git",
-  },
-  settings = {
-    typescript = {
-      format = {
-        insertSpaceAfterFunctionKeywordForAnonymousFunctions = true,
-      },
-    },
-    javascript = {
-      format = {
-        insertSpaceAfterFunctionKeywordForAnonymousFunctions = true,
-      },
-    },
-  },
-}
-
--- Use none-ls ONLY for Prettier formatting (no eslint)
-S.use_none_ls = true
-S.none_ls = {
-  formatting = { "prettier" },
-  diagnostics = {},   -- important: nothing here
-  code_actions = {},
-}
-
--- Format-on-save for app code
-S.format_on_save.enable = true
-S.format_on_save.vars = {
-  print_width = 100,
-}
-
--- null-ls sources for TS/JS: Prettier only
-S.hooks.none_ls_sources = function(builtins)
-  local sources = {}
-
-  -- Defensive guard: builtins or formatting may be nil
-  local fmt = builtins and builtins.formatting or nil
-  if fmt and fmt.prettier then
-    -- Try to find local node_modules/.bin/prettier
-    local function find_node_modules_bin()
-      local dir = vim.fn.expand('%:p:h')
-      while dir and dir ~= '/' do
-        local bin_path = dir .. '/node_modules/.bin/prettier'
-        if vim.fn.executable(bin_path) == 1 then
-          return dir .. '/node_modules/.bin'
-        end
-        local parent = vim.fn.fnamemodify(dir, ':h')
-        if parent == dir then break end
-        dir = parent
-      end
-      return nil
-    end
-    local local_bin = find_node_modules_bin()
-    table.insert(sources, fmt.prettier.with({
-      prefer_local = local_bin,
-      extra_args = {
-        "--print-width",
-        tostring(S.format_on_save.vars.print_width or 100),
-      },
-    }))
-  end
-
-  return sources
-end
-
-S.hooks.none_ls_on_attach = function()
-  return true
-end
-
--- Optional: installer helpers (used by language_installer.lua)
-S.installer.enabled = true
-S.installer.steps = {
-  {
-    tool = "vtsls",
-    check = "vtsls",
-    cmd = function(u)
-      u.exec({ "npm", "install", "-g", "vtsls", "@vtsls/language-server" })
-    end,
-  },
-  {
-    tool = "prettier",
-    check = "prettier",
-    cmd = function(u)
-      u.exec({ "npm", "install", "-g", "prettier" })
-    end,
-  },
-}
-
-return FullProfile
-

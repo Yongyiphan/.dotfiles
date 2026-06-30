@@ -1,7 +1,20 @@
 local M = {}
 vim.diagnostic.config({
 	virtual_text = false,
-	signs = true,
+	signs = {
+		text = {
+			[vim.diagnostic.severity.ERROR] = "E ",
+			[vim.diagnostic.severity.WARN] = "W ",
+			[vim.diagnostic.severity.HINT] = "H ",
+			[vim.diagnostic.severity.INFO] = " ",
+		},
+		numhl = {
+			[vim.diagnostic.severity.ERROR] = "DiagnosticSignError",
+			[vim.diagnostic.severity.WARN] = "DiagnosticSignWarn",
+			[vim.diagnostic.severity.HINT] = "DiagnosticSignHint",
+			[vim.diagnostic.severity.INFO] = "DiagnosticSignInfo",
+		},
+	},
 	float = {
 		source = "always",
 		border = "single",
@@ -10,13 +23,6 @@ vim.diagnostic.config({
 		end,
 	},
 })
-
---local signs = { Error = " ", Warn = " ", Hint = " ", Info = " " }
-local signs = { Error = "E ", Warn = "W ", Hint = "H ", Info = " " }
-for type, icon in pairs(signs) do
-	local hl = "DiagnosticSign" .. type
-	vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = hl })
-end
 
 function M.close_diag_window(scope)
 	-- If we find a floating window, close it.

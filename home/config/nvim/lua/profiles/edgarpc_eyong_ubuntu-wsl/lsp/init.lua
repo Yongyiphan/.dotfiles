@@ -1,18 +1,9 @@
--- Unused for now
 local M = {}
 
-M.languages = vim.list_extend(
-	vim.deepcopy(require("profiles.default.lsp").languages),
-	{
-		"python",
-		"typescript",
-		"markdown"
-		-- "json",
-		-- "yaml",
-	}
-)
-
-M.enable_avante = false
-
+M.languages = {
+	"python",
+	"typescript",
+	"markdown",
+}
 
 return M

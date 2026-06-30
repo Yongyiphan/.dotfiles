@@ -1,5 +1,29 @@
 local M = {}
 
+function M.notify_file_operation(changes)
+	if type(changes) ~= "table" or #changes == 0 then
+		return
+	end
+
+	vim.defer_fn(function()
+		pcall(vim.cmd, "checktime")
+
+		local ok, lsp_profile = pcall(require, "ega.custom.lsp")
+		if not ok or type(lsp_profile.get_active_definitions) ~= "function" then
+			return
+		end
+
+		for _, def in ipairs(lsp_profile.get_active_definitions()) do
+			local handler = ((def.editor or {}).file_operations or {}).on_change
+			if type(handler) == "function" then
+				pcall(handler, {
+					changes = changes,
+				})
+			end
+		end
+	end, 1000)
+end
+
 -- Stop LSP clients attached to the current buffer and reattach them.
 -- Optional: pass a client name (e.g., "pyright") to restart only that one.
 function M.restart_attached(name)
@@ -18,12 +42,11 @@ function M.restart_attached(name)
 		end
 	end
 	
-	-- (c) Re-trigger your FileType autostart (your pipeline hooks onto FileType)
-	-- This runs all FileType autocmds again for this buffer, which will call start_lsp()
-	vim.api.nvim_exec_autocmds("FileType", { buffer = buf })
-	
-	-- (d) Nudge the buffer to ensure reattach & diagnostics refresh
-	vim.defer_fn(function() pcall(vim.cmd, "edit") end, 50)
+	-- (c) Re-trigger FileType after clients have had time to stop.
+	vim.defer_fn(function()
+		vim.api.nvim_exec_autocmds("FileType", { buffer = buf })
+		pcall(vim.cmd, "edit")
+	end, 150)
 	
 	vim.notify(
 		string.format("LSP restarted for buffer%s", name and (" (" .. name .. ")") or ""),

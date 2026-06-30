@@ -1,6 +1,11 @@
 -- ega.custom.lsp.handlers.lua
 local M = {}
-print("Loading LSP handlers...")
+
+local function is_none_ls_client(client)
+	return client.supports_method("textDocument/formatting")
+		and (client.name == "null-ls" or client.name == "none-ls")
+end
+
 function M.setup()
 	local group = vim.api.nvim_create_augroup("LspAttach", {})
 	vim.api.nvim_create_autocmd("LspAttach", {
@@ -26,8 +31,8 @@ function M.setup()
 			-- km("n", "<leader>if", vim.lsp.buf.format, _G.KeyOpts("Format", opts))
 			km("n", "<leader>if", function()
 				vim.lsp.buf.format({
-					name = "null-ls",
 					timeout_ms = 3000,
+					filter = is_none_ls_client,
 				})
 			end, _G.KeyOpts("Format", opts))
 		end,
@@ -35,4 +40,3 @@ function M.setup()
 end
 
 return M
-

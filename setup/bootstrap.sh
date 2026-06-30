@@ -1,201 +1,245 @@
 #!/usr/bin/env bash
-# bootstrap.sh — minimal first-run setup for a fresh machine
-# Usage:
-#   ./setup/bootstrap.sh                 # dry-run
-#   ./setup/bootstrap.sh --yes           # execute
-#   ./setup/bootstrap.sh --install-brew [--write-shellenv]
-#   ./setup/bootstrap.sh --profile <name>   # force a specific profile name
-#   ./setup/bootstrap.sh --ssh              # (optional) start/load ssh-agent
+# bootstrap.sh — tracked first-run setup for tmux + Neovim
 #
-# What this does (by design, minimal):
-#   1) Installs APT essentials (Linux/Debian-family only)
-#   2) Optionally installs Homebrew (macOS/Linuxbrew) and writes brew shellenv
-#   3) Ensures ~/.local/bin and PATH
-#   4) Links dotfiles via setup/link-dotfiles.sh
-#   5) Resolves your dotfiles profile (lib/profile.sh or --profile); if missing, CREATES it,
-#      then exports DOTFILES_PROFILE so it can be consumed immediately.
-#
-# What this does NOT do:
-#   - No provisioning/version-pin from specs (run your provision step separately)
+# Live contract:
+#   1) resolve the active profile
+#   2) install tracked packages from core + profile catalogs
+#   3) install the bootstrap-owned Neovim runtime
+#   4) link dotfiles
+#   5) optionally prewarm tmux/Neovim
+#   6) freeze observed package-manager state and write drift reports
 
 set -euo pipefail
 
-# -----------------------------
-# Flags & helpers
-# -----------------------------
 DO_IT="no"
-WANT_BREW="no"
-WRITE_SHELLENV="no"
 FORCE_PROFILE=""
 RUN_SSH="no"
+SKIP_INSTALL="no"
+SKIP_LINK="no"
+SKIP_PREWARM="no"
+AUDIT_ONLY="no"
 
 log(){ printf "\033[1;34m[bootstrap]\033[0m %s\n" "$*" >&2; }
 warn(){ printf "\033[1;33m[bootstrap]\033[0m %s\n" "$*" >&2; }
 err(){ printf "\033[1;31m[bootstrap]\033[0m %s\n" "$*" >&2; }
-run(){ if [ "$DO_IT" = "yes" ]; then log "exec: $*"; eval "$@"; else log "dry-run: $*"; fi; }
-need(){ command -v "$1" >/dev/null 2>&1; }
-is_linux(){ [ "$(uname -s)" = "Linux" ]; }
-is_darwin(){ [ "$(uname -s)" = "Darwin" ]; }
-is_debian(){ [ -e /etc/debian_version ]; }
 
-# Resolve repo root even if this file is symlinked
+run_cmd() {
+  if [ "$DO_IT" = "yes" ]; then
+    log "exec: $*"
+    eval "$@"
+  else
+    log "dry-run: $*"
+  fi
+}
+
 _dotfiles_root() {
   local here="${BASH_SOURCE[0]}"
   while [ -L "$here" ]; do
-    local link; link="$(readlink "$here")"
+    local link
+    link="$(readlink "$here")"
     here="$(cd "$(dirname "$here")" && cd "$(dirname "$link")" && pwd)/$(basename "$link")"
   done
   cd "$(dirname "$here")/.." >/dev/null 2>&1 && pwd
 }
 
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [options]
+
+  --yes, -y            Execute changes instead of dry-run
+  --profile NAME       Force a specific profile name
+  --ssh                Run ssh_setup.sh after linking
+  --skip-install       Skip tracked package install + Neovim core install
+  --skip-link          Skip dotfile linking
+  --skip-prewarm       Skip tmux/Neovim prewarm
+  --freeze-only        Only freeze observed state and write audit outputs
+  --audit-only         Alias for --freeze-only
+  -h, --help           Show this help
+EOF
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes) DO_IT="yes" ;;
-    --install-brew) WANT_BREW="yes" ;;
-    --write-shellenv) WRITE_SHELLENV="yes" ;;
     -p|--profile) FORCE_PROFILE="${2:-}"; shift ;;
     --ssh) RUN_SSH="yes" ;;
-    -h|--help)
-      sed -n '1,160p' "$0" | sed 's/^# //;t;d'; exit 0 ;;
+    --skip-install) SKIP_INSTALL="yes" ;;
+    --skip-link) SKIP_LINK="yes" ;;
+    --skip-prewarm) SKIP_PREWARM="yes" ;;
+    --freeze-only|--audit-only)
+      AUDIT_ONLY="yes"
+      SKIP_INSTALL="yes"
+      SKIP_LINK="yes"
+      SKIP_PREWARM="yes"
+      ;;
+    -h|--help) usage; exit 0 ;;
     *) err "Unknown arg: $1"; exit 2 ;;
-  esac; shift
+  esac
+  shift
 done
 
-SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
 DOTFILES_ROOT="${DOTFILES_ROOT:-$(_dotfiles_root)}"
 export DOTFILES_ROOT
-log "DOTFILES_ROOT=$DOTFILES_ROOT"
 
-# -----------------------------
-# 1) APT essentials (Linux/Debian family)
-# -----------------------------
-if is_linux && is_debian; then
-  run "$SUDO apt-get update -y"
-  APT_PKGS=(build-essential curl file git ca-certificates procps tar xz-utils unzip pkg-config)
-  run "$SUDO apt-get install -y ${APT_PKGS[*]}"
+if [ ! -f "$DOTFILES_ROOT/lib/profile.sh" ]; then
+  err "Missing profile resolver at $DOTFILES_ROOT/lib/profile.sh"
+  exit 1
+fi
+if [ ! -f "$DOTFILES_ROOT/setup/resolve_catalog.sh" ]; then
+  err "Missing catalog resolver at $DOTFILES_ROOT/setup/resolve_catalog.sh"
+  exit 1
 fi
 
-# -----------------------------
-# 2) Optional Homebrew install
-# -----------------------------
-if [ "$WANT_BREW" = "yes" ]; then
-  if need brew; then
-    log "Homebrew already present."
-  else
-    if is_darwin || is_linux; then
-      run '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-      if is_darwin; then
-        run 'eval "$(/opt/homebrew/bin/brew shellenv)"'
-      else
-        if [ -d /home/linuxbrew/.linuxbrew ]; then
-          run 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"'
-        elif [ -d "$HOME/.linuxbrew" ]; then
-          run 'eval "$($HOME/.linuxbrew/bin/brew shellenv)"'
-        fi
-      fi
-    fi
-  fi
-  if need brew && [ "$WRITE_SHELLENV" = "yes" ]; then
-    SHELLRC="${ZSH_VERSION:+$HOME/.zshrc}"; SHELLRC="${SHELLRC:-$HOME/.bashrc}"
-    run 'BREW_SHELLENV="$(brew shellenv)"'
-    run "grep -q 'brew shellenv' '$SHELLRC' || { printf '\\n# Homebrew\\n%s\\n' \"\$BREW_SHELLENV\" >> '$SHELLRC'; }"
-    log "Appended brew shellenv to $SHELLRC"
-  fi
-fi
+# shellcheck disable=SC1090
+. "$DOTFILES_ROOT/lib/profile.sh"
+# shellcheck disable=SC1090
+. "$DOTFILES_ROOT/setup/resolve_catalog.sh"
 
-# -----------------------------
-# 3) Ensure ~/.local/bin on PATH
-# -----------------------------
-run "mkdir -p \"\$HOME/.local/bin\""
-case ":${PATH:-}:" in
-  *":$HOME/.local/bin:"*) : ;;
-  *) export PATH="$HOME/.local/bin:$PATH";;
-esac
-
-# -----------------------------
-# 4) Link dotfiles (idempotent)
-# -----------------------------
-LINKER="$DOTFILES_ROOT/setup/link-dotfiles.sh"
-if [ -x "$LINKER" ]; then
-  run "\"$LINKER\""
-else
-  warn "Linker not found at $LINKER — skipping link step."
-fi
-
-# -----------------------------
-# 5) Resolve profile; if missing, CREATE it; then export DOTFILES_PROFILE
-# -----------------------------
-# Source your resolver if present
-if [ -f "$DOTFILES_ROOT/lib/profile.sh" ]; then
-  # shellcheck disable=SC1090
-  . "$DOTFILES_ROOT/lib/profile.sh"
-fi
-
-# Resolve name: forced via CLI > get_profile_name() > fallback pattern
-_profile_default_name() {
-  local host user distro mid=""
-  host="$(hostnamectl --static 2>/dev/null || hostname -s 2>/dev/null || uname -n)"
-  user="$(id -un 2>/dev/null || echo "${USER:-unknown}")"
-  if [ -r /etc/os-release ]; then . /etc/os-release; distro="${ID:-linux}"; else distro="unknown"; fi
-  [ -n "${WSL_DISTRO_NAME:-}" ] && distro="${distro}-wsl"
-  printf '%s_%s_%s\n' "$(echo "$host"   | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]_-' '_')" \
-                       "$(echo "$user"   | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]_-' '_')" \
-                       "$(echo "$distro" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]_-' '_')"
-}
-
-# -----------------------------
-# 5) Resolve profile; create skeleton on first run; export DOTFILES_PROFILE
-# -----------------------------
-# (resolver sourcing happens earlier in your script)
-PROFILE_NAME="${PROFILE_NAME:-$FORCE_PROFILE}"
-if [ -z "$PROFILE_NAME" ]; then
-  if declare -F get_profile_name >/dev/null 2>&1; then
-    PROFILE_NAME="$(get_profile_name || true)"
-  else
-    # fallback pattern
-    host="$(hostnamectl --static 2>/dev/null || hostname -s 2>/dev/null || uname -n)"
-    user="$(id -un 2>/dev/null || echo "${USER:-unknown}")"
-    if [ -r /etc/os-release ]; then . /etc/os-release; distro="${ID:-linux}"; else distro="unknown"; fi
-    [ -n "${WSL_DISTRO_NAME:-}" ] && distro="${distro}-wsl"
-    PROFILE_NAME="$(printf '%s_%s_%s\n' \
-      "$(echo "$host"   | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]_-' '_')" \
-      "$(echo "$user"   | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]_-' '_')" \
-      "$(echo "$distro" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]_-' '_')")"
-  fi
-fi
-
+PROFILE_NAME="${FORCE_PROFILE:-$(get_profile_name)}"
 PROFILE_DIR="$DOTFILES_ROOT/profiles/$PROFILE_NAME"
 SPEC_DIR="$PROFILE_DIR/specs"
+CORE_SPEC_DIR="$DOTFILES_ROOT/profiles/core/specs"
+CORE_CATALOG="$CORE_SPEC_DIR/catalog.lock"
+PROFILE_CATALOG="$SPEC_DIR/catalog.lock"
+TMP_MANIFEST=""
 
-if [ -d "$PROFILE_DIR" ]; then
-  export DOTFILES_PROFILE="$PROFILE_NAME"
-  log "DOTFILES_PROFILE=$DOTFILES_PROFILE (existing)"
+cleanup() {
+  if [ -n "$TMP_MANIFEST" ] && [ -f "$TMP_MANIFEST" ]; then
+    rm -f "$TMP_MANIFEST"
+  fi
+  return 0
+}
+trap cleanup EXIT
+
+ensure_profile_scaffold() {
+  mkdir -p "$CORE_SPEC_DIR" "$SPEC_DIR"
+
+  if [ ! -f "$CORE_CATALOG" ]; then
+    catalog_default_scaffold > "$CORE_CATALOG"
+  fi
+
+  if [ ! -f "$PROFILE_DIR/ENV" ]; then
+    : > "$PROFILE_DIR/ENV"
+  fi
+
+  if [ ! -f "$PROFILE_CATALOG" ]; then
+    catalog_default_scaffold > "$PROFILE_CATALOG"
+  fi
+
+  if [ ! -f "$SPEC_DIR/tarball.specs" ]; then
+    cat > "$SPEC_DIR/tarball.specs" <<'EOF'
+# tarball.specs (optional)
+# One per line: name[=version] [url=...]
+EOF
+  fi
+}
+
+preview_scaffold() {
+  if [ ! -d "$PROFILE_DIR" ]; then
+    log "profile scaffold would be created at $PROFILE_DIR"
+  fi
+  if [ ! -f "$CORE_CATALOG" ]; then
+    log "core catalog would be created at $CORE_CATALOG"
+  fi
+  if [ ! -f "$PROFILE_CATALOG" ]; then
+    log "profile catalog would be created at $PROFILE_CATALOG"
+  fi
+}
+
+prewarm_tmux() {
+  local tpm_dir="$HOME/.tmux/plugins/tpm"
+  if [ ! -d "$tpm_dir" ] && command -v git >/dev/null 2>&1; then
+    log "prewarm: cloning TPM"
+    git clone https://github.com/tmux-plugins/tpm "$tpm_dir" >/dev/null 2>&1 || warn "TPM clone failed; continuing"
+  fi
+  if [ -x "$tpm_dir/bin/install_plugins" ]; then
+    log "prewarm: installing tmux plugins"
+    TMUX_PLUGIN_MANAGER_PATH="$HOME/.tmux/plugins/" "$tpm_dir/bin/install_plugins" >/dev/null 2>&1 || warn "tmux plugin prewarm failed; continuing"
+  fi
+}
+
+prewarm_nvim() {
+  local nvim_bin=""
+  if [ -x "$HOME/.local/bin/nvim" ]; then
+    nvim_bin="$HOME/.local/bin/nvim"
+  elif command -v nvim >/dev/null 2>&1; then
+    nvim_bin="$(command -v nvim)"
+  fi
+  [ -n "$nvim_bin" ] || return 0
+
+  log "prewarm: syncing Neovim plugins"
+  "$nvim_bin" --headless "+Lazy! sync" "+qa" >/dev/null 2>&1 || warn "Neovim Lazy sync failed; continuing"
+  log "prewarm: updating Treesitter parsers"
+  "$nvim_bin" --headless "+TSUpdateSync" "+qa" >/dev/null 2>&1 || warn "Neovim TSUpdateSync failed; continuing"
+}
+
+if [ "$DO_IT" = "yes" ]; then
+  ensure_profile_scaffold
 else
-  log "== DRY-RUN PREVIEW: create profile skeleton at $PROFILE_DIR =="
-  run "mkdir -p \"$SPEC_DIR\" \"$PROFILE_DIR/home\" \"$PROFILE_DIR/lsp/settings\""
-  run "printf 'return { }\\n' > \"$PROFILE_DIR/plugins.lua\""
-  run "printf 'return { names = { } }\\n' > \"$PROFILE_DIR/lsp/settings.lua\""
-  run "printf '# per-profile exports go here\\n' > \"$PROFILE_DIR/ENV\""
+  preview_scaffold
+fi
 
+export DOTFILES_PROFILE="$PROFILE_NAME"
+log "DOTFILES_ROOT=$DOTFILES_ROOT"
+log "DOTFILES_PROFILE=$DOTFILES_PROFILE"
+
+if [ "$AUDIT_ONLY" = "yes" ]; then
   if [ "$DO_IT" = "yes" ]; then
-    export DOTFILES_PROFILE="$PROFILE_NAME"
-    log "DOTFILES_PROFILE=$DOTFILES_PROFILE (created)"
+    "$DOTFILES_ROOT/setup/freeze_catalog.sh" --profile "$PROFILE_NAME" --init
   else
-    log "Dry-run only — nothing created. Re-run with --yes to create $PROFILE_DIR."
+    log "dry-run: \"$DOTFILES_ROOT/setup/freeze_catalog.sh\" --profile \"$PROFILE_NAME\" --init"
+  fi
+  log "Bootstrap complete. Mode: ${DO_IT^^}"
+  exit 0
+fi
+
+TMP_MANIFEST="$(mktemp)"
+catalog_write_install_manifest "$CORE_CATALOG" "$PROFILE_CATALOG" "$TMP_MANIFEST"
+
+if [ "$SKIP_INSTALL" = "no" ]; then
+  if [ "$DO_IT" = "yes" ]; then
+    "$DOTFILES_ROOT/setup/pkg_install.sh" -f "$TMP_MANIFEST" --yes
+    "$DOTFILES_ROOT/setup/install-core.sh"
+  else
+    log "dry-run: \"$DOTFILES_ROOT/setup/pkg_install.sh\" -f \"$TMP_MANIFEST\""
+    log "dry-run: \"$DOTFILES_ROOT/setup/install-core.sh\""
   fi
 fi
 
-# -----------------------------
-# 6) Optional: bring up ssh-agent now
-# -----------------------------
-if [ "$RUN_SSH" = "yes" ]; then
-  SSH_HELPER="$DOTFILES_ROOT/scripts/ssh_setup.sh"
-  if [ -x "$SSH_HELPER" ]; then
-    run "\"$SSH_HELPER\""
+if [ "$SKIP_LINK" = "no" ]; then
+  if [ "$DO_IT" = "yes" ]; then
+    "$DOTFILES_ROOT/setup/link-dotfiles.sh"
   else
-    warn "ssh_setup.sh not found/executable at $SSH_HELPER — skipping ssh step."
+    log "dry-run: \"$DOTFILES_ROOT/setup/link-dotfiles.sh\""
   fi
+fi
+
+if [ "$RUN_SSH" = "yes" ]; then
+  if [ -x "$DOTFILES_ROOT/scripts/ssh_setup.sh" ]; then
+    if [ "$DO_IT" = "yes" ]; then
+      "$DOTFILES_ROOT/scripts/ssh_setup.sh"
+    else
+      log "dry-run: \"$DOTFILES_ROOT/scripts/ssh_setup.sh\""
+    fi
+  else
+    warn "ssh_setup.sh not found or not executable; skipping"
+  fi
+fi
+
+if [ "$SKIP_PREWARM" = "no" ]; then
+  if [ "$DO_IT" = "yes" ]; then
+    prewarm_tmux
+    prewarm_nvim
+  else
+    log "dry-run: prewarm tmux"
+    log "dry-run: prewarm nvim"
+  fi
+fi
+
+if [ "$DO_IT" = "yes" ]; then
+  "$DOTFILES_ROOT/setup/freeze_catalog.sh" --profile "$PROFILE_NAME" --init
+else
+  log "dry-run: \"$DOTFILES_ROOT/setup/freeze_catalog.sh\" --profile \"$PROFILE_NAME\" --init"
 fi
 
 log "Bootstrap complete. Mode: ${DO_IT^^}"
-

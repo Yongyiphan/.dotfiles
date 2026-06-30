@@ -1,2 +1,4 @@
 tmux/plugins/
 gh/
+nvim/lua/profiles/*/lazy-lock-*.json
+htop/htoprc

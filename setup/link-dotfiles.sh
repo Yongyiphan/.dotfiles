@@ -47,7 +47,8 @@ find "$HOME" -maxdepth 2 -type l -print0 2>/dev/null | while IFS= read -r -d '' 
   fi
 done
 
-# 3) Link all files under DOTFILES_HOME except config/ and bin/
+# 3) Link top-level home dotfiles (for example .bashrc, .gitconfig, .inputrc)
+#    from DOTFILES_HOME into $HOME, except config/ and bin/
 find "$DOTFILES_HOME" -maxdepth 2 -type f \
   ! -path "$DOTFILES_HOME/config/*" \
   ! -path "$DOTFILES_HOME/bin/*" -print0 \

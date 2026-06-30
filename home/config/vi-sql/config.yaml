@@ -1,0 +1,39 @@
+version: 0.1.0
+log:
+    path: /tmp/vi-sql.log
+    level: info
+    prettyPrint: true
+editor:
+    command: ""
+    env: EDITOR
+    enabled: false
+ui:
+    schemaPanelWidth: 30
+    vimMode: true
+mcp:
+    enabled: false
+    port: 0
+    allowRead: false
+    allowWrite: false
+security:
+    method: keyring
+showConnectionPage: true
+currentConnection: helix-dev
+connections:
+    - id: 24495979-f097-4d42-ba07-56c0be98cba4
+      driver: sqlite
+      dsn: ./data/helix-dev.sqlite3
+      host: ""
+      port: 0
+      database: ""
+      username: ""
+      password: ""
+      sslMode: ""
+      name: helix-dev
+      timeout: 0
+      options:
+        alwaysConfirmActions: true
+      lastUsed: 2026-06-10T03:02:57.940713564+08:00
+styles:
+    nerdFont: true
+    currentStyle: default.yaml

@@ -1,52 +1,17 @@
 #!/usr/bin/env bash
-# only for macOS/WSL if you want brew there
-if [[ "$OS_TYPE" == "darwin" || "$OS_TYPE" == "linux" ]]; then
-  if ! command -v brew &>/dev/null; then
-    echo "🍺 Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  fi
+set -euo pipefail
 
-  # ensure brew env is loaded
-  eval "$(brew shellenv)"
+DOTFILES_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-  if [ -f "$DOTFILES/Brewfile" ]; then
-    echo "📦 Installing Homebrew packages from Brewfile..."
-    brew bundle --file="$DOTFILES/Brewfile"
-  fi
-else
-  echo "⏭  Skipping Homebrew on $OS_TYPE"
-fi
-
-# Save installed brew packages
-save_brew_packages() {
-    echo "Saving installed brew packages to $BREWFILE..."
-		unset EDITOR VISUAL
-    brew bundle dump --file="$BREWFILE" --force --describe
-    echo "Brew packages saved."
-}
-
-# Restore brew packages
-restore_brew_packages() {
-    if [ -f "$BREWFILE" ]; then
-        echo "Restoring brew packages from $BREWFILE..."
-        brew bundle install --file="$BREWFILE"
-        echo "Brew packages restored."
-    else
-        echo "No Brewfile found. Skipping brew package restoration."
-    fi
-}
-
-# Call the appropriate function based on the argument
-case "$1" in
-    save)
-        save_brew_packages
-        ;;
-    restore)
-        restore_brew_packages
-        ;;
-    *)
-        echo "Usage: $0 {save|restore}"
-        exit 1
-        ;;
+case "${1:-restore}" in
+  save)
+    exec "$DOTFILES_ROOT/setup/freeze_catalog.sh" "${@:2}"
+    ;;
+  restore)
+    exec "$DOTFILES_ROOT/setup/bootstrap.sh" "${@:2}"
+    ;;
+  *)
+    echo "setup/brew-setup.sh is deprecated. Use setup/bootstrap.sh or setup/freeze_catalog.sh." >&2
+    exit 1
+    ;;
 esac
-

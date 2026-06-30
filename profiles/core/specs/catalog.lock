@@ -1,0 +1,18 @@
+# id|manager|package|policy|version|required|note
+git|any|git|minimum|2.39|1|core vcs
+curl|any|curl|minimum|7.80|1|bootstrap downloads
+ca-certificates|any|ca-certificates|floating|-|1|tls trust store
+tar|any|tar|floating|-|1|archive extraction
+unzip|any|unzip|floating|-|1|archive extraction
+xz|apt|xz-utils|floating|-|1|archive extraction
+xz|brew|xz|floating|-|1|archive extraction
+pkg-config|apt|pkg-config|floating|-|1|native toolchain helper
+pkg-config|brew|pkgconf|floating|-|1|native toolchain helper
+toolchain|apt|build-essential|floating|-|1|native compiler toolchain
+tmux|any|tmux|minimum|3.2|1|terminal multiplexer
+ripgrep|any|ripgrep|minimum|13.0|1|search backend
+fd|apt|fd-find|minimum|8.0|1|finder backend
+fd|brew|fd|minimum|8.0|1|finder backend
+node|apt|nodejs|minimum|18|1|copilot runtime
+node|brew|node|minimum|18|1|copilot runtime
+npm|apt|npm|minimum|8|1|javascript package manager

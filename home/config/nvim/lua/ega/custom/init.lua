@@ -1,5 +1,5 @@
 local M = {}
-M.dap = require("ega.custom.dap")
+M.dap = _G.call("ega.custom.dap")
 M.lsp = require("ega.custom.lsp")
 M.buffer = require("ega.custom.buffer")
 M.cs = require("ega.custom.cheatsheet")
@@ -16,4 +16,4 @@ M.custom_setup = function()
 	require("nvim-web-devicons").setup()
 end
 
-		return M
+return M

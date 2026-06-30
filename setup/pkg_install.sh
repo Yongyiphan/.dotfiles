@@ -33,6 +33,10 @@ TAR_DIR="${HOME}/.local/share/pkgs"
 CACHE_DIR="${HOME}/.cache/install"
 PRIORITY="apt,tar,brew"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RESOLVE_HELPER="$SCRIPT_DIR/resolve_catalog.sh"
+[ -f "$RESOLVE_HELPER" ] && . "$RESOLVE_HELPER"
+
 log(){ printf "\033[1;34m[install]\033[0m %s\n" "$*" >&2; }
 warn(){ printf "\033[1;33m[warn]\033[0m %s\n" "$*" >&2; }
 err(){ printf "\033[1;31m[error]\033[0m %s\n" "$*" >&2; }
@@ -121,8 +125,22 @@ try_install_in_order(){
 # ---------- Parsers ----------
 parse_lock_line(){
   # echo "<src> <pkg> <ver> <url>"; src ∈ {apt,brew,tar,auto}
-  local line="$1"; line="${line%%#*}"; line="$(echo "$line" | xargs)"; [ -z "$line" ] && return 1
-  local src="auto" item ver="" url=""
+  local raw="$1" parsed id manager package policy version required note src
+  if declare -F catalog_parse_line >/dev/null 2>&1; then
+    parsed="$(catalog_parse_line "$raw")" || return 1
+    IFS=$'\t' read -r id manager package policy version required note <<< "$parsed"
+    case "$manager" in
+      any) src="auto" ;;
+      *) src="$manager" ;;
+    esac
+    [ "$version" = "-" ] && version=""
+    echo "$src $package $version "
+    return 0
+  fi
+
+  local line="$raw"; line="${line%%#*}"; line="$(echo "$line" | xargs)"; [ -z "$line" ] && return 1
+  local item ver="" url=""
+  src="auto"
   [[ "$line" == apt:*  ]] && src="apt"  && line="${line#apt:}"
   [[ "$line" == brew:* ]] && src="brew" && line="${line#brew:}"
   [[ "$line" == tar:*  ]] && src="tar"  && line="${line#tar:}"
