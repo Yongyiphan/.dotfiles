@@ -13,7 +13,9 @@ local function unique_languages(languages)
 end
 
 function M.get_enabled_languages()
-	local ok, profile_settings = pcall(require, string.format("profiles.%s.lsp", vim.g.NVIM_PROFILE))
+	local profile_module = (_G.rprofile and (_G.rprofile .. ".lsp"))
+		or string.format("profiles.%s.lsp", vim.g.NVIM_PROFILE)
+	local ok, profile_settings = pcall(require, profile_module)
 	if ok and type(profile_settings) == "table" and type(profile_settings.languages) == "table" then
 		local langs = unique_languages(profile_settings.languages)
 		if #langs > 0 then

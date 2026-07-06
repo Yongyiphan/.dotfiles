@@ -112,7 +112,13 @@ vmap("n", "<leader>cE", Custom.config.b_share_files, KeyOpts("Browse Share Files
 --Find
 --
 MapGroup["<leader>f"] = sections.f
-vmap("n", "<leader>fm", Custom.fzflua.main_fzf_files, KeyOpts("From C:"))
+vmap("n", "<leader>fm", function()
+	if Custom.fzflua and Custom.fzflua.main_fzf_files then
+		Custom.fzflua.main_fzf_files()
+	else
+		vim.notify("fzf-lua is not available", vim.log.levels.ERROR)
+	end
+end, KeyOpts("From C:"))
 vmap("n", "<leader>ff", Custom.telescope.find_files_custom, KeyOpts("Project File"))
 vmap("n", "<leader>,", Custom.telescope.find_files_custom, KeyOpts("Project File"))
 vmap("n", "<leader>fw", Custom.telescope.live_grep_files, KeyOpts("Word"))
